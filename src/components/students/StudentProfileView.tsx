@@ -250,6 +250,9 @@ function StudentProfileInner() {
         })
         .then((result: StudentData) => {
           setData(result);
+          if (result.statistics && 'classAverage' in result.statistics) {
+            setClassAverage((result.statistics as any).classAverage || 0);
+          }
         })
         .catch((err: Error) => {
           setError(err.message);

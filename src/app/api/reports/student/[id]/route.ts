@@ -68,6 +68,7 @@ export async function GET(
     const classId = student.classId;
     let classRank = 0;
     let classTotal = 0;
+    let classAverage = 0;
 
     if (classId) {
       const classmates = await db.student.findMany({
@@ -76,6 +77,12 @@ export async function GET(
       });
 
       classTotal = classmates.length;
+
+      // Calculate overall class average
+      const allClassGrades = classmates.flatMap((s) => s.grades.map((g) => g.score));
+      classAverage = allClassGrades.length > 0
+        ? Math.round((allClassGrades.reduce((a, b) => a + b, 0) / allClassGrades.length) * 100) / 100
+        : 0;
 
       // Calculate averages for all classmates
       const ranked = classmates
@@ -131,6 +138,7 @@ export async function GET(
         classRank,
         classTotal,
         position,
+        classAverage,
       },
     });
   } catch (error) {
