@@ -18,6 +18,7 @@ import {
   TrendingDown,
   BarChart3,
   AlertCircle,
+  School,
 } from 'lucide-react';
 import {
   BarChart,
@@ -36,6 +37,7 @@ import {
 interface SummaryData {
   totalFiles: number;
   totalStudents: number;
+  totalClasses: number;
   approvedCount: number;
   failedCount: number;
   emcCount: number;
@@ -209,10 +211,10 @@ export function DashboardView() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
-          title="Arquivos Processados"
-          value={data.totalFiles}
-          subtitle={`${data.totalStudents} alunos encontrados`}
-          icon={FileCheck}
+          title="Total de Turmas"
+          value={data.totalClasses}
+          subtitle="turmas registradas"
+          icon={School}
           color="bg-blue-100 text-blue-600"
           loading={loading}
         />

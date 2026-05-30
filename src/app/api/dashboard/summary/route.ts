@@ -177,9 +177,12 @@ export async function GET(request: NextRequest) {
     // Critical subjects (avg < 40)
     const criticalSubjects = subjectsWithAvg.filter((s) => s.average < 40 && s.count > 0);
 
+    const totalClasses = classesWithStudents.length;
+
     return NextResponse.json({
       totalFiles,
       totalStudents,
+      totalClasses,
       approvedCount,
       failedCount,
       emcCount,
