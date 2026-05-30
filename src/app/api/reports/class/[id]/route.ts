@@ -11,20 +11,11 @@ export async function GET(
     const { id } = await params;
     await ensureClassAccess(currentUser, id);
 
+    // Fetch class and school details
     const schoolClass = await db.schoolClass.findUnique({
       where: { id },
       include: {
         school: true,
-        students: {
-          include: {
-            grades: {
-              include: {
-                subject: true,
-              },
-            },
-          },
-          orderBy: { name: 'asc' },
-        },
       },
     });
 
@@ -32,55 +23,104 @@ export async function GET(
       return NextResponse.json({ error: 'Turma não encontrada' }, { status: 404 });
     }
 
-    // Get all subjects
-    const subjects = await db.subject.findMany({
+    // Fetch students belonging to the class
+    const students = await db.student.findMany({
+      where: { classId: id },
       orderBy: { name: 'asc' },
     });
 
+    // Fetch grades for all these students in a single query
+    const studentIds = students.map((s) => s.id);
+    const grades = await db.grade.findMany({
+      where: {
+        studentId: { in: studentIds },
+      },
+      include: {
+        subject: true,
+      },
+    });
+
+    // Map unique subjects from the fetched grades
+    const uniqueSubjectsMap = new Map<string, { id: string; name: string }>();
+    grades.forEach((g) => {
+      if (g.subject) {
+        uniqueSubjectsMap.set(g.subject.id, {
+          id: g.subject.id,
+          name: g.subject.name,
+        });
+      }
+    });
+    const subjects = Array.from(uniqueSubjectsMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+
     // Calculate statistics
-    const totalStudents = schoolClass.students.length;
-    const approved = schoolClass.students.filter((s) =>
+    const totalStudents = students.length;
+    const approved = students.filter((s) =>
       ['APROVADO', 'APROVADO POR CONSELHO'].includes(s.finalResult)
     ).length;
-    const failed = schoolClass.students.filter((s) => s.finalResult === 'REPROVADO').length;
+    const failed = students.filter((s) => s.finalResult === 'REPROVADO').length;
 
-    const allGrades = schoolClass.students.flatMap((s) => s.grades.map((g) => g.score));
+    const allGrades = grades.map((g) => g.score);
     const overallAvg = allGrades.length > 0
       ? allGrades.reduce((a, b) => a + b, 0) / allGrades.length
       : 0;
 
     const zeroCount = allGrades.filter((g) => g === 0).length;
 
+    // Group grades by subject for fast O(1) lookups
+    const gradesBySubject = new Map<string, typeof grades>();
+    grades.forEach((g) => {
+      let list = gradesBySubject.get(g.subjectId);
+      if (!list) {
+        list = [];
+        gradesBySubject.set(g.subjectId, list);
+      }
+      list.push(g);
+    });
+
     // Average by subject for this class
     const subjectAverages = subjects.map((subject) => {
-      const grades = schoolClass.students
-        .flatMap((s) => s.grades)
-        .filter((g) => g.subjectId === subject.id);
+      const subjectGrades = gradesBySubject.get(subject.id) || [];
 
-      const avg = grades.length > 0
-        ? grades.reduce((a, b) => a + b.score, 0) / grades.length
+      const avg = subjectGrades.length > 0
+        ? subjectGrades.reduce((a, b) => a + b.score, 0) / subjectGrades.length
         : 0;
 
-      const zeros = grades.filter((g) => g.score === 0).length;
+      const zeros = subjectGrades.filter((g) => g.score === 0).length;
 
       return {
         subjectId: subject.id,
         subject: subject.name,
         average: Math.round(avg * 100) / 100,
-        count: grades.length,
+        count: subjectGrades.length,
         zeroCount: zeros,
       };
     }).sort((a, b) => a.average - b.average);
 
+    // Group grades by student for fast O(1) lookups
+    const gradesByStudent = new Map<string, typeof grades>();
+    grades.forEach((g) => {
+      let list = gradesByStudent.get(g.studentId);
+      if (!list) {
+        list = [];
+        gradesByStudent.set(g.studentId, list);
+      }
+      list.push(g);
+    });
+
     // Student details
-    const studentDetails = schoolClass.students.map((student) => {
-      const studentAvg = student.grades.length > 0
-        ? student.grades.reduce((a, b) => a + b.score, 0) / student.grades.length
+    const studentDetails = students.map((student) => {
+      const studentGrades = gradesByStudent.get(student.id) || [];
+      const studentAvg = studentGrades.length > 0
+        ? studentGrades.reduce((a, b) => a + b.score, 0) / studentGrades.length
         : 0;
 
       const gradesMap: Record<string, number> = {};
-      student.grades.forEach((g) => {
-        gradesMap[g.subject.name] = g.score;
+      studentGrades.forEach((g) => {
+        if (g.subject) {
+          gradesMap[g.subject.name] = g.score;
+        }
       });
 
       return {
@@ -90,8 +130,8 @@ export async function GET(
         gender: student.gender,
         finalResult: student.finalResult,
         average: Math.round(studentAvg * 100) / 100,
-        totalGrades: student.grades.length,
-        zeroCount: student.grades.filter((g) => g.score === 0).length,
+        totalGrades: studentGrades.length,
+        zeroCount: studentGrades.filter((g) => g.score === 0).length,
         grades: gradesMap,
       };
     });

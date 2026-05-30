@@ -169,7 +169,10 @@ export function Sidebar() {
         />
       )}
 
-      <aside className={cn('fixed left-0 top-0 z-50 h-full bg-white border-r border-border flex flex-col transition-all duration-300', sidebarOpen ? 'w-64' : 'w-16', 'max-lg:shadow-xl')}>
+      <aside className={cn(
+        'fixed left-0 top-0 z-50 h-full bg-white border-r border-border flex flex-col transition-all duration-300 max-lg:shadow-xl',
+        sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0 w-64 lg:w-16'
+      )}>
         <div className={cn('flex items-center h-16 border-b border-border', sidebarOpen ? 'px-3' : 'justify-center px-2')}>
           {sidebarOpen ? (
             <img

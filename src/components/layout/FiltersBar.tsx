@@ -68,7 +68,7 @@ export function FiltersBar() {
   return (
     <div className="flex flex-wrap items-center gap-3 p-4 bg-muted/30 border-b border-border">
       {/* Search */}
-      <div className="relative flex-1 min-w-[200px] max-w-xs">
+      <div className="relative flex-1 w-full min-w-[200px] md:max-w-xs">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           aria-label="Buscar aluno"
@@ -88,7 +88,7 @@ export function FiltersBar() {
             setSelectedClassId(null);
           }}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Todas as Escolas" />
           </SelectTrigger>
           <SelectContent>
@@ -108,7 +108,7 @@ export function FiltersBar() {
           value={selectedClassId || 'all'}
           onValueChange={(val) => setSelectedClassId(val === 'all' ? null : val)}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Todas as Turmas" />
           </SelectTrigger>
           <SelectContent>
@@ -130,7 +130,7 @@ export function FiltersBar() {
           setSelectedClassId(null);
         }}
       >
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-full sm:w-[150px]">
           <SelectValue placeholder="Todos os Turnos" />
         </SelectTrigger>
         <SelectContent>
@@ -147,7 +147,7 @@ export function FiltersBar() {
         value={selectedResult || 'all'}
         onValueChange={(val) => setSelectedResult(val === 'all' ? null : val)}
       >
-        <SelectTrigger className="w-[170px]">
+        <SelectTrigger className="w-full sm:w-[170px]">
           <SelectValue placeholder="Todos os Resultados" />
         </SelectTrigger>
         <SelectContent>
