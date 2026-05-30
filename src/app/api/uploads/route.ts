@@ -4,7 +4,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { getPdfUploadDir, getPdfUploadPath } from '@/lib/paths';
-import { DATA_WRITE_ROLES, buildSchoolWhereForUser, jsonError, requireRoles, requireUser } from '@/lib/api-auth';
+import { ADMIN_ROLES, buildSchoolWhereForUser, jsonError, requireRoles, requireUser } from '@/lib/api-auth';
 
 const MAX_FILES_PER_REQUEST = 10;
 const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024;
@@ -19,7 +19,7 @@ function isPdfFile(file: any, buffer: Buffer) {
 export async function POST(request: NextRequest) {
   try {
     const currentUser = await requireUser(request);
-    requireRoles(currentUser, DATA_WRITE_ROLES);
+    requireRoles(currentUser, ADMIN_ROLES);
 
     const formData = await request.formData();
     const files = formData.getAll('files');
@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const currentUser = await requireUser(request);
+    requireRoles(currentUser, ADMIN_ROLES);
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');

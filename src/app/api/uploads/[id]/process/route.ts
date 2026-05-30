@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { parseAtaPdf } from '@/lib/pdfParser';
 import { getPdfUploadPath } from '@/lib/paths';
-import { DATA_WRITE_ROLES, jsonError, requireRoles, requireUser } from '@/lib/api-auth';
+import { ADMIN_ROLES, jsonError, requireRoles, requireUser } from '@/lib/api-auth';
 
 export async function POST(
   request: NextRequest,
@@ -10,7 +10,7 @@ export async function POST(
 ) {
   try {
     const currentUser = await requireUser(request);
-    requireRoles(currentUser, DATA_WRITE_ROLES);
+    requireRoles(currentUser, ADMIN_ROLES);
 
     const { id } = await params;
 

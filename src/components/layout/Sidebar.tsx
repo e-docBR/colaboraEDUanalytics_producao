@@ -133,7 +133,15 @@ export function Sidebar() {
     if (item.label === 'Administração') return setAdminOpen(!adminOpen);
   };
 
-  const allItems = isSuperAdmin ? [...navItems, ...adminItems] : navItems;
+  const isAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.id === 'uploads') {
+      return isAdmin;
+    }
+    return true;
+  });
+
+  const allItems = isSuperAdmin ? [...filteredNavItems, ...adminItems] : filteredNavItems;
 
   const handleNavClick = (item: NavItem) => {
     if ('children' in item && item.children) {

@@ -81,7 +81,7 @@ function statusBadge(status: string) {
 }
 
 export function UploadView() {
-  const { refreshTrigger } = useAppStore();
+  const { refreshTrigger, currentUser } = useAppStore();
   const [uploads, setUploads] = useState<UploadRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -89,7 +89,10 @@ export function UploadView() {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const canUpload = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
+
   const fetchUploads = useCallback(() => {
+    if (!canUpload) return;
     setLoading(true);
     fetch('/api/uploads?limit=50')
       .then((r) => r.json())
@@ -180,6 +183,24 @@ export function UploadView() {
   const handleDragLeave = () => {
     setDragOver(false);
   };
+
+  if (!canUpload) {
+    return (
+      <div className="p-4 lg:p-6 space-y-6">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-red-100 text-red-600">
+            <XCircle className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Acesso Negado</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Apenas administradores podem gerenciar e enviar atas de resultado.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
