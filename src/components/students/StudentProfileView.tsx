@@ -171,7 +171,7 @@ function StudentProfileInner() {
   const searchParams = useSearchParams();
   const selectedStudentId = searchParams.get('studentId');
 
-  const { selectedSchoolId, selectedClassId, selectedShift, refreshTrigger, selectedStudentId: storeStudentId, setSelectedStudentId } =
+  const { selectedSchoolId, selectedClassId, selectedShift, refreshTrigger, selectedStudentId: storeStudentId, setSelectedStudentId, searchQuery } =
     useAppStore();
 
   const [data, setData] = useState<StudentData | null>(null);
@@ -182,6 +182,23 @@ function StudentProfileInner() {
   );
   const [classAverage, setClassAverage] = useState<number>(0);
   const [loadingStudents, setLoadingStudents] = useState(false);
+
+  // Filter student list by searchQuery
+  const filteredStudentList = studentList.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Auto-select first matching student when search query changes
+  useEffect(() => {
+    if (searchQuery.trim() !== '') {
+      const match = studentList.find((s) =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      if (match && match.id !== currentStudentId) {
+        setCurrentStudentId(match.id);
+      }
+    }
+  }, [searchQuery, studentList, currentStudentId]);
 
   const loading = data === null && error === null && !!currentStudentId;
 
@@ -400,7 +417,7 @@ function StudentProfileInner() {
                   Carregando...
                 </SelectItem>
               ) : (
-                studentList.map((s) => (
+                filteredStudentList.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
                     {s.name}
                   </SelectItem>
