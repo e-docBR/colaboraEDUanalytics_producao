@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          String   @default("VIEWER") // SUPER_ADMIN, ADMIN, DIRECAO, COORDINATOR, ADVISOR, MANAGER, TEACHER, VIEWER
+  avatarUrl     String?
+  phone         String?
+  isActive      Boolean  @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  schools       UserSchool[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model UserSchool {
+  id       String   @id @default(cuid())
+  userId   String
+  schoolId String
+  role     String   @default("MEMBER") // SCHOOL_ADMIN, MANAGER, TEACHER, VIEWER per school
+  createdAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school   School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schoolId])
+  @@index([userId])
+  @@index([schoolId])
+}
+
+model Upload {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  status      String   @default("pending") // pending, processing, processed, error
+  errorMessage String?
+  schoolId    String?
+  classId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school       School?      @relation(fields: [schoolId], references: [id])
+  schoolClass  SchoolClass? @relation(fields: [classId], references: [id])
+  students     Student[]
+  inconsistencies Inconsistency[]
+
+  @@index([status])
+  @@index([schoolId])
+}
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  inep      String?
+  city      String?
+  state     String?
+  address   String?
+  cnpj      String?
+  phone     String?
+  email     String?
+  logoUrl   String?
+  principal String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uploads  Upload[]
+  classes  SchoolClass[]
+  students Student[]
+  users    UserSchool[]
+
+  @@unique([inep])
+}
+
+model SchoolClass {
+  id             String   @id @default(cuid())
+  schoolId       String
+  grade          String
+  name           String
+  shift          String
+  minimumAverage Float
+  year           Int      @default(2024)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  school   School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  uploads  Upload[]
+  students Student[]
+
+  @@unique([schoolId, grade, name, shift, year])
+}
+
+model Student {
+  id          String   @id @default(cuid())
+  name        String
+  birthDate   String?
+  gender      String?
+  finalResult String
+  uploadId    String
+  schoolId    String?
+  classId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  upload    Upload       @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  school    School?      @relation(fields: [schoolId], references: [id])
+  schoolClass SchoolClass? @relation(fields: [classId], references: [id])
+  grades    Grade[]
+  inconsistencies Inconsistency[]
+
+  @@index([uploadId])
+  @@index([schoolId])
+  @@index([classId])
+  @@index([finalResult])
+}
+
+model Subject {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  grades Grade[]
+}
+
+model Grade {
+  id        String   @id @default(cuid())
+  studentId String
+  subjectId String
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, subjectId])
+  @@index([studentId])
+  @@index([subjectId])
+}
+
+model Inconsistency {
+  id        String   @id @default(cuid())
+  uploadId  String
+  type      String   // missing_grade, zero_grades, class_all_failed, missing_field, duplicate_student
+  message   String
+  details   String?
+  studentId String?
+  createdAt DateTime @default(now())
+
+  upload  Upload  @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  student Student? @relation(fields: [studentId], references: [id])
+
+  @@index([uploadId])
+  @@index([type])
+}

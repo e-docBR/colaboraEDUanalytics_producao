@@ -1,0 +1,19 @@
+[Unit]
+Description=colaboraEDU Analytics
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/colaboraEDUanalytics
+EnvironmentFile=/var/www/colaboraEDUanalytics/.env
+Environment=NODE_ENV=production
+Environment=PORT=3005
+Environment=HOSTNAME=0.0.0.0
+ExecStart=/usr/bin/node /var/www/colaboraEDUanalytics/.next/standalone/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

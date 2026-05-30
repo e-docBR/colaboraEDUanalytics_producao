@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
+  <title id="title">colaboraEDU Analytics</title>
+  <desc id="desc">Logomarca vertical colaboraEDU Analytics</desc>
+  <defs>
+    <linearGradient id="symbol-gradient" x1="220" y1="88" x2="420" y2="290" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#06b6d4"/>
+      <stop offset="0.48" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="edu-gradient" x1="428" y1="410" x2="570" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(182 48) scale(1.95)">
+    <path d="M21 76a48 48 0 0 1 78-38" fill="none" stroke="url(#symbol-gradient)" stroke-width="8" stroke-linecap="round"/>
+    <path d="M105 52a48 48 0 0 1-49 54l-19 10 2-22a48 48 0 0 1-11-13" fill="none" stroke="url(#symbol-gradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M34 74 62 44 89 74H34Z" fill="none" stroke="url(#symbol-gradient)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="34" cy="74" r="9" fill="url(#symbol-gradient)"/>
+    <circle cx="62" cy="44" r="9" fill="url(#symbol-gradient)"/>
+    <circle cx="89" cy="74" r="9" fill="url(#symbol-gradient)"/>
+    <circle cx="105" cy="48" r="9" fill="url(#symbol-gradient)"/>
+  </g>
+  <text x="70" y="405" fill="#07162f" font-family="Arial, Helvetica, sans-serif" font-size="74" font-weight="800">colabora</text>
+  <text x="430" y="405" fill="url(#edu-gradient)" font-family="Arial, Helvetica, sans-serif" font-size="74" font-weight="900">EDU</text>
+  <text x="180" y="515" fill="#2563eb" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700">Analytics</text>
+</svg>
