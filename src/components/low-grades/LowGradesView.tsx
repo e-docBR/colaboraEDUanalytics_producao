@@ -46,6 +46,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { toast } from 'sonner';
+import { generateLowGradesOnlyPDF } from '@/lib/pdfGenerator';
 
 interface LowGradeStudent {
   studentId: string;
@@ -148,6 +149,31 @@ export function LowGradesView() {
     }
   };
 
+  const exportPDF = async () => {
+    if (!data) return;
+    try {
+      toast.loading('Gerando PDF...', { id: 'pdf-gen' });
+      const firstStudent = data.students[0];
+      const schoolName = firstStudent?.schoolName || data.classAnalysis[0]?.schoolName || 'colaboraEDU Analytics';
+      
+      let clsName = '';
+      let shftName = '';
+      if (selectedClassId && data.students.length > 0) {
+        clsName = data.students[0].className;
+        shftName = data.students[0].shift;
+      } else {
+        clsName = data.classAnalysis.map(c => c.className).join(', ') || 'Geral';
+        shftName = selectedShift || 'Todos';
+      }
+
+      await generateLowGradesOnlyPDF(data, schoolName, clsName, shftName);
+      toast.success('PDF exportado com sucesso', { id: 'pdf-gen' });
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao exportar PDF', { id: 'pdf-gen' });
+    }
+  };
+
   if (!data) {
     return (
       <div className="p-4 lg:p-6 space-y-6">
@@ -224,10 +250,16 @@ export function LowGradesView() {
             Relat&oacute;rio completo de alunos com notas abaixo de {data.threshold} pontos em qualquer disciplina
           </p>
         </div>
-        <Button variant="outline" onClick={exportCSV} className="gap-2 self-start">
-          <Download className="w-4 h-4" />
-          Exportar CSV
-        </Button>
+        <div className="flex flex-wrap gap-2 self-start">
+          <Button variant="outline" onClick={exportCSV} className="gap-2">
+            <Download className="w-4 h-4" />
+            Exportar CSV
+          </Button>
+          <Button onClick={exportPDF} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+            <Download className="w-4 h-4" />
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}

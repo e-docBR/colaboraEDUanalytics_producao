@@ -795,3 +795,292 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
   const fileName = `relatorio_${safeClassName}_${new Date().getFullYear()}.pdf`;
   doc.save(fileName);
 }
+
+// ===== DEDICATED LOW GRADES PORTRAIT PDF EXPORTER =====
+export async function generateLowGradesOnlyPDF(
+  data: {
+    threshold: number;
+    totalLowGrades: number;
+    zeroGradeCount: number;
+    affectedStudents: number;
+    affectedPercentage: number;
+    students: Array<{
+      studentName: string;
+      className: string;
+      shift: string;
+      schoolName: string;
+      finalResult: string;
+      average: number;
+      lowGradeCount: number;
+      totalGrades: number;
+      lowGradeSubjects: Array<{ subject: string; score: number }>;
+    }>;
+    subjectAnalysis?: Array<{
+      subject: string;
+      lowCount: number;
+      zeroCount: number;
+      totalCount: number;
+      percentage: number;
+      avgLowScore: number;
+    }>;
+  },
+  schoolName: string,
+  className: string,
+  shift: string
+): Promise<void> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+  const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
+  const margin = 12;
+  let yPos = margin;
+
+  // ===== HEADER =====
+  doc.setFillColor(...COLORS.primary);
+  doc.rect(0, 0, pageWidth, 28, 'F');
+
+  // White logo symbol
+  doc.setFillColor(...COLORS.white);
+  doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
+  doc.setTextColor(...COLORS.primary);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+
+  // School / System Name
+  doc.setTextColor(...COLORS.white);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(schoolName || 'colaboraEDU Analytics', margin + 22, 13);
+
+  // Subtitle / Filters
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const filterText = [
+    className ? `Turma: ${className}` : '',
+    shift ? `Turno: ${shift}` : '',
+  ].filter(Boolean).join(' | ');
+  doc.text(`Relatório: Alunos Abaixo da Média (${filterText || 'Geral'})`, margin + 22, 20);
+
+  // Generation details
+  doc.setFontSize(8);
+  doc.text(`Gerado em: ${formatDate()}`, pageWidth - margin, 13, { align: 'right' });
+  doc.text(`Ano Letivo: ${new Date().getFullYear()}`, pageWidth - margin, 19, { align: 'right' });
+
+  yPos = 34;
+
+  // ===== KPI CARDS =====
+  const kpis = [
+    { label: 'Notas < 15', value: data.totalLowGrades.toString() },
+    { label: 'Alunos Afetados', value: `${data.affectedStudents} (${data.affectedPercentage}%)` },
+    { label: 'Notas Zero (0)', value: data.zeroGradeCount.toString() },
+  ];
+
+  const boxWidth = 58;
+  const boxHeight = 14;
+  kpis.forEach((item, i) => {
+    const xPos = margin + i * (boxWidth + 4);
+    doc.setFillColor(...COLORS.lightBg);
+    doc.roundedRect(xPos, yPos, boxWidth, boxHeight, 2, 2, 'F');
+    doc.setTextColor(...COLORS.dark);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(item.value, xPos + 4, yPos + 6);
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.muted);
+    doc.text(item.label, xPos + 4, yPos + 11);
+  });
+
+  yPos += boxHeight + 6;
+
+  // ===== TABLE OF STUDENTS =====
+  if (data.students && data.students.length > 0) {
+    const tableHeader = ['Aluno', 'Média', 'Result.', 'Notas Baixas', 'Disciplinas e Notas'];
+    const tableBody = data.students.map((s) => [
+      s.studentName,
+      s.average.toFixed(1),
+      s.finalResult,
+      s.lowGradeCount.toString(),
+      s.lowGradeSubjects.map((ls) => `${ls.subject} (${ls.score.toFixed(1)})`).join(', '),
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [tableHeader],
+      body: tableBody,
+      margin: { left: margin, right: margin, bottom: margin + 4 },
+      styles: {
+        fontSize: 7.5,
+        cellPadding: 2,
+        lineColor: [229, 231, 235],
+        lineWidth: 0.1,
+        font: 'helvetica',
+      },
+      headStyles: {
+        fillColor: COLORS.failed,
+        textColor: COLORS.headerText,
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+      },
+      alternateRowStyles: {
+        fillColor: [255, 248, 248] as [number, number, number],
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { halign: 'center', cellWidth: 15 },
+        2: { halign: 'center', cellWidth: 20 },
+        3: { halign: 'center', cellWidth: 20 },
+        4: { cellWidth: 'auto' },
+      },
+      didParseCell: (cellData) => {
+        if (cellData.section === 'body') {
+          // Highlight Reprovado
+          if (cellData.column.index === 2 && cellData.cell.raw === 'REPROVADO') {
+            cellData.cell.styles.textColor = COLORS.failed;
+            cellData.cell.styles.fontStyle = 'bold';
+          }
+          // Style averages
+          if (cellData.column.index === 1) {
+            const val = parseFloat(cellData.cell.raw as string);
+            if (!isNaN(val)) {
+              cellData.cell.styles.textColor = getScoreColor(val);
+              cellData.cell.styles.fontStyle = 'bold';
+            }
+          }
+        }
+      },
+      didDrawPage: (pageData) => {
+        const pageNum = doc.getNumberOfPages();
+        doc.setFontSize(7);
+        doc.setTextColor(...COLORS.muted);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Página ${pageData.pageNumber} de ${pageNum}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+      },
+    });
+  }
+
+  // ===== BAR CHART SECTION =====
+  let currentY = yPos;
+  if (data.students && data.students.length > 0) {
+    currentY = (doc as any).lastAutoTable.finalY + 12;
+  }
+
+  const subjects = data.subjectAnalysis || [];
+  if (subjects.length > 0) {
+    const chartSectionHeight = 72; // Altura estimada para o título, gráfico, labels do eixo X inclinados e margens
+    
+    // Se não couber na página atual, adicionamos uma nova página
+    if (currentY + chartSectionHeight > pageHeight - margin - 8) {
+      doc.addPage();
+      currentY = margin + 6; // Começa no topo da nova página
+    }
+
+    // 1. Título e subtítulo do gráfico
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...COLORS.dark);
+    doc.text('Notas Abaixo da Média por Disciplina', margin, currentY);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.muted);
+    doc.text(`Quantidade de alunos com notas < ${data.threshold} em cada disciplina`, margin, currentY + 4);
+
+    // 2. Parâmetros de desenho do gráfico
+    const startX = margin + 12;
+    const startY = currentY + 12;
+    const chartWidth = pageWidth - margin * 2 - 16;
+    const chartHeight = 35; // Altura da área de plotagem das barras
+    const endY = startY + chartHeight;
+
+    // Calcular escala máxima do eixo Y
+    const maxLowCount = subjects.reduce((max, s) => Math.max(max, s.lowCount), 0);
+    let yMax = 4;
+    if (maxLowCount > 0) {
+      yMax = Math.ceil(maxLowCount / 4) * 4;
+    }
+
+    // 3. Desenhar Eixo Y, rótulos e linhas de grade (grid)
+    const yTicks = 4;
+    doc.setLineWidth(0.08);
+    
+    for (let i = 0; i <= yTicks; i++) {
+      const val = (yMax / yTicks) * i;
+      const yVal = endY - (chartHeight * (val / yMax));
+      
+      // Linha de grade (cinza muito claro)
+      doc.setDrawColor(220, 224, 230);
+      doc.line(startX, yVal, startX + chartWidth, yVal);
+      
+      // Rótulo do Eixo Y
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...COLORS.muted);
+      doc.text(val.toString(), startX - 3, yVal + 1, { align: 'right' });
+    }
+
+    // 4. Desenhar Eixo X (linha base)
+    doc.setLineWidth(0.25);
+    doc.setDrawColor(100, 110, 120);
+    doc.line(startX, endY, startX + chartWidth, endY);
+
+    // 5. Desenhar Barras e Eixo X (Disciplinas)
+    const barSpacing = chartWidth / subjects.length;
+    const barWidth = Math.min(barSpacing * 0.55, 11);
+
+    subjects.forEach((subj, idx) => {
+      const centerX = startX + (idx * barSpacing) + (barSpacing / 2);
+      const barHeight = (subj.lowCount / yMax) * chartHeight;
+      const xBar = centerX - (barWidth / 2);
+      const yBar = endY - barHeight;
+
+      if (subj.lowCount > 0) {
+        // Cor de preenchimento (Laranja #f97316)
+        doc.setFillColor(249, 115, 22);
+        
+        // Desenhar a barra com cantos superiores arredondados
+        const radius = Math.min(1.5, barHeight);
+        if (radius > 0) {
+          doc.roundedRect(xBar, yBar, barWidth, barHeight, radius, radius, 'F');
+          if (barHeight > radius) {
+            doc.rect(xBar, endY - radius, barWidth, radius, 'F');
+          }
+        } else {
+          doc.rect(xBar, yBar, barWidth, barHeight, 'F');
+        }
+
+        // Rótulo de dados (Data Label) acima da barra
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(17, 24, 39);
+        doc.text(subj.lowCount.toString(), centerX, yBar - 1.2, { align: 'center' });
+      }
+
+      // Nome da disciplina no eixo X (rotacionado a 315 graus com alinhamento à esquerda, inclinando para baixo)
+      const label = subj.subject.length > 20 ? subj.subject.slice(0, 18) + '...' : subj.subject;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(75, 85, 99);
+      doc.text(label, centerX, endY + 3, { angle: 315, align: 'left' });
+    });
+  }
+
+  // ===== FOOTER ON ALL PAGES =====
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7);
+    doc.setTextColor(...COLORS.muted);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Página ${p} de ${totalPages}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+    doc.text(`Relatório gerado em ${formatDate()}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
+    doc.text('colaboraEDU Analytics', margin, pageHeight - 6);
+  }
+
+  // ===== SAVE / DOWNLOAD =====
+  const safeClassName = className ? className.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '') : 'geral';
+  const fileName = `alunos_abaixo_media_${safeClassName}_${new Date().getFullYear()}.pdf`;
+  doc.save(fileName);
+}
