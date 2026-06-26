@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -24,6 +31,7 @@ import {
   FileText,
   Download,
   BarChart3,
+  Loader2,
 } from 'lucide-react';
 import {
   BarChart,
@@ -33,7 +41,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { toast } from 'sonner';
 
@@ -72,6 +79,8 @@ export function ReportsView() {
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ClassReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -88,6 +97,7 @@ export function ReportsView() {
   }, [selectedSchoolId, refreshTrigger]);
 
   const loadReport = async (classId: string) => {
+    setModalOpen(true);
     setReportLoading(true);
     try {
       const res = await fetch(`/api/reports/class/${classId}`);
@@ -129,8 +139,43 @@ export function ReportsView() {
       });
     } catch {
       toast.error('Erro ao carregar relatório');
+      setModalOpen(false);
     } finally {
       setReportLoading(false);
+    }
+  };
+
+  const exportPdf = async () => {
+    if (!selectedReport) return;
+    setExportingPdf(true);
+    try {
+      const res = await fetch('/api/reports/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId: selectedReport.classInfo.id,
+          includeKPIs: true,
+          includeStudentTable: true,
+          includeCharts: true,
+          includeSubjectAnalysis: true,
+          includeLowGrades: false,
+          title: `Relatório - ${selectedReport.classInfo.grade} ${selectedReport.classInfo.name}`,
+        }),
+      });
+      if (!res.ok) throw new Error('Erro ao gerar PDF');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const safeName = `${selectedReport.classInfo.grade}_${selectedReport.classInfo.name}`.replace(/\s+/g, '_');
+      a.download = `relatorio_${safeName}_${new Date().getFullYear()}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF exportado com sucesso');
+    } catch {
+      toast.error('Erro ao exportar PDF');
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -225,11 +270,7 @@ export function ReportsView() {
                 <button
                   key={cls.id}
                   onClick={() => loadReport(cls.id)}
-                  className={`p-4 rounded-xl border text-left transition-all hover:shadow-md ${
-                    selectedReport?.classInfo?.id === cls.id
-                      ? 'border-blue-400 bg-blue-50 shadow-md'
-                      : 'border-border hover:border-blue-200'
-                  }`}
+                  className="p-4 rounded-xl border text-left transition-all hover:shadow-md border-border hover:border-blue-200"
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -252,117 +293,160 @@ export function ReportsView() {
         </CardContent>
       </Card>
 
-      {/* Selected report */}
-      {reportLoading && (
-        <div className="space-y-4">
-          <Skeleton className="h-40" />
-          <Skeleton className="h-60" />
-        </div>
-      )}
-
-      {selectedReport && !reportLoading && (
-        <>
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            <Card className="gap-0">
-              <CardHeader className="pb-1"><CardDescription className="text-xs">Turma</CardDescription></CardHeader>
-              <CardContent>
-                <p className="text-lg font-bold">
-                  {selectedReport.classInfo.grade} {selectedReport.classInfo.name}
-                </p>
-                <p className="text-xs text-muted-foreground">{selectedReport.classInfo.shift}</p>
-              </CardContent>
-            </Card>
-            <Card className="gap-0">
-              <CardHeader className="pb-1"><CardDescription className="text-xs">Total Alunos</CardDescription></CardHeader>
-              <CardContent><p className="text-2xl font-bold">{selectedReport.stats.totalStudents}</p></CardContent>
-            </Card>
-            <Card className="gap-0">
-              <CardHeader className="pb-1"><CardDescription className="text-xs">Aprovação</CardDescription></CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-blue-600">{selectedReport.stats.approvalRate}%</p>
-                <p className="text-xs text-muted-foreground">{selectedReport.stats.approvedCount} aprovados</p>
-              </CardContent>
-            </Card>
-            <Card className="gap-0">
-              <CardHeader className="pb-1"><CardDescription className="text-xs">Reprovação</CardDescription></CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-red-600">{100 - selectedReport.stats.approvalRate}%</p>
-                <p className="text-xs text-muted-foreground">{selectedReport.stats.failedCount} reprovados</p>
-              </CardContent>
-            </Card>
-            <Card className="gap-0">
-              <CardHeader className="pb-1"><CardDescription className="text-xs">Média Geral</CardDescription></CardHeader>
-              <CardContent><p className="text-2xl font-bold text-amber-600">{selectedReport.stats.overallAverage}</p></CardContent>
-            </Card>
-          </div>
-
-          {/* Subject chart */}
-          <Card className="gap-0">
-            <CardHeader>
-              <CardTitle className="text-base">Média por Disciplina</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedReport.subjectAverages.length > 0 && (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={selectedReport.subjectAverages} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="subject" angle={-45} textAnchor="end" fontSize={10} height={80} />
-                    <YAxis domain={[0, 100]} fontSize={11} />
-                    <Tooltip formatter={(value: number) => [value.toFixed(1), 'Média']} />
-                    <Bar dataKey="average" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Student table */}
-          <Card className="gap-0">
-            <CardHeader>
-              <CardTitle className="text-base">Alunos da Turma</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-[400px] overflow-y-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Aluno</TableHead>
-                      <TableHead className="hidden sm:table-cell">Média</TableHead>
-                      <TableHead>Resultado</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedReport.students.map((student) => {
-                      const avg = student.grades.length > 0
-                        ? (student.grades.reduce((s, g) => s + g.score, 0) / student.grades.length).toFixed(1)
-                        : '-';
-                      return (
-                        <TableRow key={student.id}>
-                          <TableCell className="text-sm">{student.name}</TableCell>
-                          <TableCell className="hidden sm:table-cell text-sm font-medium">{avg}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={
-                                student.finalResult === 'APROVADO'
-                                  ? 'text-blue-600 bg-blue-50 border-blue-200'
-                                  : 'text-red-600 bg-red-50 border-red-200'
-                              }
-                            >
-                              {student.finalResult}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+      {/* Report Modal */}
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) setSelectedReport(null); }}>
+        <DialogContent className="sm:max-w-[95vw] lg:max-w-[85vw] max-h-[92vh] flex flex-col p-0" showCloseButton={true}>
+          {/* Modal header */}
+          <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+            <div className="flex items-center justify-between pr-8">
+              <div>
+                <DialogTitle className="text-lg">
+                  {selectedReport
+                    ? `${selectedReport.classInfo.grade} ${selectedReport.classInfo.name}`
+                    : 'Carregando...'}
+                </DialogTitle>
+                <DialogDescription className="mt-1">
+                  {selectedReport
+                    ? `${selectedReport.classInfo.shift} — ${selectedReport.classInfo.school?.name || ''}`
+                    : 'Buscando dados do relatório...'}
+                </DialogDescription>
               </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+              {selectedReport && !reportLoading && (
+                <Button
+                  onClick={exportPdf}
+                  disabled={exportingPdf}
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {exportingPdf ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
+                  ) : (
+                    <><Download className="w-4 h-4" /> Exportar PDF</>
+                  )}
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+
+          {/* Modal body with scroll */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+            {reportLoading && (
+              <div className="space-y-4 py-8">
+                <div className="flex items-center justify-center gap-3 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="text-sm">Carregando relatório...</span>
+                </div>
+                <Skeleton className="h-24" />
+                <Skeleton className="h-48" />
+                <Skeleton className="h-32" />
+              </div>
+            )}
+
+            {selectedReport && !reportLoading && (
+              <>
+                {/* Stats KPIs */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <Card className="gap-0">
+                    <CardHeader className="pb-1"><CardDescription className="text-xs">Turma</CardDescription></CardHeader>
+                    <CardContent>
+                      <p className="text-lg font-bold">
+                        {selectedReport.classInfo.grade} {selectedReport.classInfo.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{selectedReport.classInfo.shift}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="gap-0">
+                    <CardHeader className="pb-1"><CardDescription className="text-xs">Total Alunos</CardDescription></CardHeader>
+                    <CardContent><p className="text-2xl font-bold">{selectedReport.stats.totalStudents}</p></CardContent>
+                  </Card>
+                  <Card className="gap-0">
+                    <CardHeader className="pb-1"><CardDescription className="text-xs">Aprovação</CardDescription></CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-blue-600">{selectedReport.stats.approvalRate}%</p>
+                      <p className="text-xs text-muted-foreground">{selectedReport.stats.approvedCount} aprovados</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="gap-0">
+                    <CardHeader className="pb-1"><CardDescription className="text-xs">Reprovação</CardDescription></CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-bold text-red-600">{100 - selectedReport.stats.approvalRate}%</p>
+                      <p className="text-xs text-muted-foreground">{selectedReport.stats.failedCount} reprovados</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="gap-0">
+                    <CardHeader className="pb-1"><CardDescription className="text-xs">Média Geral</CardDescription></CardHeader>
+                    <CardContent><p className="text-2xl font-bold text-amber-600">{selectedReport.stats.overallAverage}</p></CardContent>
+                  </Card>
+                </div>
+
+                {/* Subject chart */}
+                <Card className="gap-0">
+                  <CardHeader>
+                    <CardTitle className="text-base">Média por Disciplina</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedReport.subjectAverages.length > 0 && (
+                      <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={selectedReport.subjectAverages} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
+                          <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                          <XAxis dataKey="subject" angle={-45} textAnchor="end" fontSize={10} height={80} />
+                          <YAxis domain={[0, 100]} fontSize={11} />
+                          <Tooltip formatter={(value: number) => [value.toFixed(1), 'Média']} />
+                          <Bar dataKey="average" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Student table */}
+                <Card className="gap-0">
+                  <CardHeader>
+                    <CardTitle className="text-base">Alunos da Turma</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-[400px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Aluno</TableHead>
+                            <TableHead className="hidden sm:table-cell">Média</TableHead>
+                            <TableHead>Resultado</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedReport.students.map((student) => {
+                            const avg = student.grades.length > 0
+                              ? (student.grades.reduce((s, g) => s + g.score, 0) / student.grades.length).toFixed(1)
+                              : '-';
+                            return (
+                              <TableRow key={student.id}>
+                                <TableCell className="text-sm">{student.name}</TableCell>
+                                <TableCell className="hidden sm:table-cell text-sm font-medium">{avg}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      student.finalResult === 'APROVADO'
+                                        ? 'text-blue-600 bg-blue-50 border-blue-200'
+                                        : 'text-red-600 bg-red-50 border-red-200'
+                                    }
+                                  >
+                                    {student.finalResult}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
