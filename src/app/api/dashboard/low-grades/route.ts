@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
-import { buildClassWhereForUser, buildStudentWhereForUser, jsonError, requireUser } from '@/lib/api-auth';
+import { buildClassWhereForUser, buildStudentWhereForUser, buildSchoolWhereForUser, jsonError, requireUser } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,6 +11,17 @@ export async function GET(request: NextRequest) {
     const classId = searchParams.get('classId');
     const shift = searchParams.get('shift');
     const threshold = parseFloat(searchParams.get('threshold') || '15');
+
+    let schoolLogo: string | null = null;
+    if (schoolId && schoolId !== '__all__') {
+      const school = await db.school.findUnique({
+        where: { id: schoolId },
+        select: { logoUrl: true },
+      });
+      if (school) {
+        schoolLogo = school.logoUrl;
+      }
+    }
 
     const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId });
     if (shift) studentWhere.schoolClass = { shift };
@@ -232,6 +243,29 @@ export async function GET(request: NextRequest) {
       else scoreDistribution[3].count++;
     }
 
+    // Fallback inteligente para schoolLogo caso nao tenha sido selecionada uma escola especifica
+    if (!schoolLogo) {
+      const schoolIds = [...new Set(lowGrades.map((g) => g.student.schoolId).filter(Boolean))];
+      if (schoolIds.length === 1) {
+        const school = await db.school.findUnique({
+          where: { id: schoolIds[0] as string },
+          select: { logoUrl: true },
+        });
+        if (school) {
+          schoolLogo = school.logoUrl;
+        }
+      } else {
+        const userSchools = await db.school.findMany({
+          where: buildSchoolWhereForUser(currentUser),
+          select: { logoUrl: true },
+          take: 2,
+        });
+        if (userSchools.length === 1) {
+          schoolLogo = userSchools[0].logoUrl;
+        }
+      }
+    }
+
     return NextResponse.json({
       threshold,
       totalLowGrades: lowGrades.length,
@@ -245,6 +279,7 @@ export async function GET(request: NextRequest) {
       subjectAnalysis,
       classAnalysis,
       scoreDistribution,
+      schoolLogo,
     });
   } catch (error) {
     if (error instanceof Error && 'status' in error) return jsonError(error);

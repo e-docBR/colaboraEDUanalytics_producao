@@ -8,6 +8,7 @@ import { ADMIN_ROLES, buildSchoolWhereForUser, jsonError, requireRoles, requireU
 
 const MAX_FILES_PER_REQUEST = 10;
 const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024;
+const VALID_PERIODS = new Set(['TRIMESTER_1', 'TRIMESTER_2', 'TRIMESTER_3', 'FINAL_RESULT']);
 
 function isPdfFile(file: any, buffer: Buffer) {
   const ext = path.extname(file.name).toLowerCase();
@@ -23,6 +24,10 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const files = formData.getAll('files');
+    const periodValue = formData.get('period');
+    const period = typeof periodValue === 'string' && VALID_PERIODS.has(periodValue)
+      ? periodValue
+      : 'FINAL_RESULT';
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado' }, { status: 400 });
@@ -69,6 +74,7 @@ export async function POST(request: NextRequest) {
         data: {
           filename,
           originalName: fileObject.name,
+          period,
           status: 'pending',
         },
       });

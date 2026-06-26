@@ -63,7 +63,6 @@ server.log
 /public/uploads/
 
 # extracted/runtime workspace artifacts
-/.agents/
 /.codex/
 /.zscripts/
 /colaboraEDUanalytics

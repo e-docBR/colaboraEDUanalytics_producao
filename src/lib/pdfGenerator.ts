@@ -12,6 +12,7 @@ export interface PDFReportOptions {
   includeCharts: boolean;
   includeSubjectAnalysis: boolean;
   includeLowGrades: boolean;
+  schoolLogo?: string;
 }
 
 // --- Types for fetched data ---
@@ -148,6 +149,40 @@ function formatDate(): string {
   });
 }
 
+function loadImage(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    
+    // Only use crossOrigin if it is a remote/external image to avoid caching/CORS issues on local files
+    const isExternal = url.startsWith('http') && !url.startsWith(window.location.origin);
+    if (isExternal) {
+      img.crossOrigin = 'anonymous';
+    }
+    
+    img.onload = () => resolve(img);
+    img.onerror = (e) => {
+      console.error('Erro ao carregar imagem para o PDF:', url, e);
+      resolve(null);
+    };
+    
+    // Add cache buster and resolve absolute path for robustness
+    const absoluteUrl = url.startsWith('/') 
+      ? window.location.origin + url 
+      : url;
+      
+    img.src = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+  });
+}
+
+function getImgFormat(url?: string | null): string {
+  if (!url) return 'JPEG';
+  const ext = url.split('.').pop()?.toLowerCase();
+  if (ext === 'png') return 'PNG';
+  if (ext === 'webp') return 'WEBP';
+  if (ext === 'gif') return 'GIF';
+  return 'JPEG';
+}
+
 // --- Main generation function ---
 export async function generateReportPDF(options: PDFReportOptions): Promise<void> {
   const {
@@ -161,7 +196,13 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
     includeCharts,
     includeSubjectAnalysis,
     includeLowGrades,
+    schoolLogo,
   } = options;
+
+  let logoImg: HTMLImageElement | null = null;
+  if (schoolLogo) {
+    logoImg = await loadImage(schoolLogo);
+  }
 
   // Build query params
   const params = new URLSearchParams();
@@ -265,12 +306,26 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
   doc.rect(0, 0, pageWidth, 28, 'F');
 
   // School icon area
-  doc.setFillColor(...COLORS.white);
-  doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+  if (logoImg) {
+    try {
+      const format = getImgFormat(schoolLogo);
+      doc.addImage(logoImg, format, margin, 5, 18, 18);
+    } catch (e) {
+      doc.setFillColor(...COLORS.white);
+      doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
+      doc.setTextColor(...COLORS.primary);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+    }
+  } else {
+    doc.setFillColor(...COLORS.white);
+    doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
+    doc.setTextColor(...COLORS.primary);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+  }
 
   // Title text
   doc.setTextColor(...COLORS.white);
@@ -823,6 +878,7 @@ export async function generateLowGradesOnlyPDF(
       percentage: number;
       avgLowScore: number;
     }>;
+    schoolLogo?: string | null;
   },
   schoolName: string,
   className: string,
@@ -834,17 +890,36 @@ export async function generateLowGradesOnlyPDF(
   const margin = 12;
   let yPos = margin;
 
+  let logoImg: HTMLImageElement | null = null;
+  if (data.schoolLogo) {
+    logoImg = await loadImage(data.schoolLogo);
+  }
+
   // ===== HEADER =====
   doc.setFillColor(...COLORS.primary);
   doc.rect(0, 0, pageWidth, 28, 'F');
 
   // White logo symbol
-  doc.setFillColor(...COLORS.white);
-  doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
-  doc.setTextColor(...COLORS.primary);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+  if (logoImg) {
+    try {
+      const format = getImgFormat(data.schoolLogo);
+      doc.addImage(logoImg, format, margin, 5, 18, 18);
+    } catch (e) {
+      doc.setFillColor(...COLORS.white);
+      doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
+      doc.setTextColor(...COLORS.primary);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+    }
+  } else {
+    doc.setFillColor(...COLORS.white);
+    doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
+    doc.setTextColor(...COLORS.primary);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+  }
 
   // School / System Name
   doc.setTextColor(...COLORS.white);

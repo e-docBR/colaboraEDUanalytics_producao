@@ -21,6 +21,13 @@ import {
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Upload,
   FileText,
   CheckCircle2,
@@ -36,6 +43,7 @@ interface UploadRecord {
   id: string;
   filename: string;
   originalName: string;
+  period: string;
   status: string;
   errorMessage: string | null;
   schoolId: string | null;
@@ -43,6 +51,17 @@ interface UploadRecord {
   createdAt: string;
   school: { id: string; name: string } | null;
   schoolClass: { id: string; grade: string; name: string; shift: string } | null;
+}
+
+const PERIOD_OPTIONS = [
+  { value: 'TRIMESTER_1', label: '1º trimestre' },
+  { value: 'TRIMESTER_2', label: '2º trimestre' },
+  { value: 'TRIMESTER_3', label: '3º trimestre' },
+  { value: 'FINAL_RESULT', label: 'Resultado final' },
+];
+
+function periodLabel(period: string) {
+  return PERIOD_OPTIONS.find((option) => option.value === period)?.label || period;
 }
 
 function statusBadge(status: string) {
@@ -87,6 +106,7 @@ export function UploadView() {
   const [uploading, setUploading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState('FINAL_RESULT');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canUpload = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN';
@@ -117,6 +137,7 @@ export function UploadView() {
     setUploading(true);
     const formData = new FormData();
     pdfFiles.forEach((f) => formData.append('files', f));
+    formData.append('period', selectedPeriod);
 
     try {
       const res = await fetch('/api/uploads', {
@@ -126,7 +147,7 @@ export function UploadView() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(`${data.uploads.length} arquivo(s) enviado(s) com sucesso`);
+        toast.success(`${data.uploads.length} arquivo(s) enviado(s) para ${periodLabel(selectedPeriod)}`);
         fetchUploads();
         // Auto-process uploaded files
         for (const upload of data.uploads) {
@@ -213,6 +234,21 @@ export function UploadView() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 max-w-xs">
+            <label className="text-sm font-medium mb-2 block">Período do arquivo</label>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod} disabled={uploading}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione o período" />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -297,6 +333,7 @@ export function UploadView() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Arquivo</TableHead>
+                    <TableHead className="hidden lg:table-cell">Período</TableHead>
                     <TableHead className="hidden sm:table-cell">Escola</TableHead>
                     <TableHead className="hidden md:table-cell">Turma</TableHead>
                     <TableHead>Status</TableHead>
@@ -320,6 +357,9 @@ export function UploadView() {
                             {upload.errorMessage}
                           </p>
                         )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <Badge variant="secondary">{periodLabel(upload.period)}</Badge>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <span className="text-sm">

@@ -45,6 +45,7 @@ model Upload {
   id          String   @id @default(cuid())
   filename    String
   originalName String
+  period      String   @default("FINAL_RESULT") // TRIMESTER_1, TRIMESTER_2, TRIMESTER_3, FINAL_RESULT
   status      String   @default("pending") // pending, processing, processed, error
   errorMessage String?
   schoolId    String?
@@ -59,6 +60,7 @@ model Upload {
 
   @@index([status])
   @@index([schoolId])
+  @@index([period])
 }
 
 model School {
@@ -140,6 +142,9 @@ model Grade {
   studentId String
   subjectId String
   score     Float
+  period    String   @default("FINAL_RESULT")
+  cumulativeScore Float?
+  previousCumulativeScore Float?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -149,6 +154,7 @@ model Grade {
   @@unique([studentId, subjectId])
   @@index([studentId])
   @@index([subjectId])
+  @@index([period])
 }
 
 model Inconsistency {

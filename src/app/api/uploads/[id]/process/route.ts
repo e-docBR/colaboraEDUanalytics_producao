@@ -4,6 +4,53 @@ import { parseAtaPdf } from '@/lib/pdfParser';
 import { getPdfUploadPath } from '@/lib/paths';
 import { ADMIN_ROLES, jsonError, requireRoles, requireUser } from '@/lib/api-auth';
 
+const PERIOD_LABELS: Record<string, string> = {
+  TRIMESTER_1: '1º trimestre',
+  TRIMESTER_2: '2º trimestre',
+  TRIMESTER_3: '3º trimestre',
+  FINAL_RESULT: 'resultado final',
+};
+
+const PREVIOUS_PERIOD: Record<string, string | null> = {
+  TRIMESTER_1: null,
+  TRIMESTER_2: 'TRIMESTER_1',
+  TRIMESTER_3: 'TRIMESTER_2',
+  FINAL_RESULT: 'TRIMESTER_3',
+};
+
+function getScoreForUploadPeriod(
+  uploadPeriod: string,
+  cumulativeScore: number,
+  existingGrade?: { period: string; cumulativeScore: number | null; previousCumulativeScore: number | null } | null
+): { periodScore: number; previousCumulativeScore: number | null } {
+  const previousPeriod = PREVIOUS_PERIOD[uploadPeriod] ?? null;
+
+  if (!previousPeriod) {
+    return { periodScore: cumulativeScore, previousCumulativeScore: null };
+  }
+
+  if (
+    existingGrade?.period === uploadPeriod &&
+    existingGrade.previousCumulativeScore !== null
+  ) {
+    return {
+      periodScore: Math.round((cumulativeScore - existingGrade.previousCumulativeScore) * 100) / 100,
+      previousCumulativeScore: existingGrade.previousCumulativeScore,
+    };
+  }
+
+  if (!existingGrade || existingGrade.period !== previousPeriod || existingGrade.cumulativeScore === null) {
+    throw new Error(
+      `Para processar ${PERIOD_LABELS[uploadPeriod] || uploadPeriod}, processe antes o ${PERIOD_LABELS[previousPeriod] || previousPeriod}.`
+    );
+  }
+
+  return {
+    periodScore: Math.round((cumulativeScore - existingGrade.cumulativeScore) * 100) / 100,
+    previousCumulativeScore: existingGrade.cumulativeScore,
+  };
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -148,12 +195,6 @@ export async function POST(
           });
           studentsUpdated++;
 
-          // Delete old grades to replace with new ones
-          if (existingStudent.grades.length > 0) {
-            await db.grade.deleteMany({
-              where: { studentId: student.id },
-            });
-          }
         } else {
           // CREATE new student
           student = await db.student.create({
@@ -174,6 +215,14 @@ export async function POST(
         for (const [discipline, score] of Object.entries(studentData.grades)) {
           const subjectId = subjectIds[discipline];
           if (subjectId) {
+            const existingGrade = existingStudent?.grades.find((grade) => grade.subjectId === subjectId);
+            const cumulativeScore = score as number;
+            const { periodScore, previousCumulativeScore } = getScoreForUploadPeriod(
+              upload.period,
+              cumulativeScore,
+              existingGrade
+            );
+
             await db.grade.upsert({
               where: {
                 studentId_subjectId: {
@@ -181,11 +230,19 @@ export async function POST(
                   subjectId,
                 },
               },
-              update: { score: score as number },
+              update: {
+                score: periodScore,
+                period: upload.period,
+                cumulativeScore,
+                previousCumulativeScore,
+              },
               create: {
                 studentId: student.id,
                 subjectId,
-                score: score as number,
+                score: periodScore,
+                period: upload.period,
+                cumulativeScore,
+                previousCumulativeScore,
               },
             });
           }
@@ -255,6 +312,7 @@ export async function POST(
         data: {
           school: school?.name,
           class: schoolClass ? `${schoolClass.grade} - ${schoolClass.shift}` : null,
+          period: PERIOD_LABELS[upload.period] || upload.period,
           studentsProcessed: studentsCreated,
           studentsUpdated,
           warnings: result.warnings.length,

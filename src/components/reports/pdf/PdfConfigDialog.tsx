@@ -28,6 +28,7 @@ import type { PDFReportOptions } from '@/lib/pdfGenerator';
 interface SchoolOption {
   id: string;
   name: string;
+  logoUrl?: string | null;
 }
 
 interface ClassOption {
@@ -111,6 +112,9 @@ export function PdfConfigDialog() {
     setError(null);
 
     try {
+      const activeSchool = schools.find(s => s.id === selectedSchoolId);
+      const schoolLogo = activeSchool?.logoUrl || undefined;
+
       const options: PDFReportOptions = {
         schoolId: selectedSchoolId || undefined,
         classId: selectedClassId || undefined,
@@ -122,6 +126,7 @@ export function PdfConfigDialog() {
         includeCharts,
         includeSubjectAnalysis,
         includeLowGrades,
+        schoolLogo,
       };
 
       await generateReportPDF(options);

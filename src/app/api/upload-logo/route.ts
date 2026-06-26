@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { ADMIN_ROLES, jsonError, requireRoles, requireUser } from '@/lib/api-auth';
+import { getProjectRoot } from '@/lib/paths';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     // Ensure uploads/logos directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'logos');
+    const uploadDir = path.join(getProjectRoot(), 'uploads', 'logos');
     await mkdir(uploadDir, { recursive: true });
 
     // Generate unique filename
