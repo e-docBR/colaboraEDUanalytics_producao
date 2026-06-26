@@ -114,17 +114,18 @@ interface LowGradesData {
 
 // --- Color palette ---
 const COLORS = {
-  primary: [37, 99, 235] as [number, number, number],      // blue-700
-  primaryLight: [59, 130, 246] as [number, number, number], // blue-600
-  headerBg: [7, 22, 47] as [number, number, number],
+  primary: [30, 41, 59] as [number, number, number],      // slate-800
+  primaryLight: [71, 85, 105] as [number, number, number], // slate-600
+  headerBg: [15, 23, 42] as [number, number, number],       // slate-900
   headerText: [255, 255, 255] as [number, number, number],
-  approved: [22, 163, 74] as [number, number, number],     // green
-  failed: [220, 38, 38] as [number, number, number],         // red
-  warning: [234, 88, 12] as [number, number, number],        // orange
-  dark: [17, 24, 39] as [number, number, number],
-  muted: [107, 114, 128] as [number, number, number],
-  lightBg: [243, 244, 246] as [number, number, number],     // gray-100
+  approved: [21, 128, 61] as [number, number, number],     // green-700
+  failed: [185, 28, 28] as [number, number, number],       // red-700
+  warning: [194, 65, 12] as [number, number, number],      // orange-700
+  dark: [15, 23, 42] as [number, number, number],          // slate-900
+  muted: [100, 116, 139] as [number, number, number],      // slate-500
+  lightBg: [248, 250, 252] as [number, number, number],    // slate-50
   white: [255, 255, 255] as [number, number, number],
+  border: [226, 232, 240] as [number, number, number],     // slate-200
 };
 
 // --- Utility functions ---
@@ -896,77 +897,110 @@ export async function generateLowGradesOnlyPDF(
   }
 
   // ===== HEADER =====
-  doc.setFillColor(...COLORS.primary);
+  doc.setFillColor(...COLORS.headerBg);
   doc.rect(0, 0, pageWidth, 28, 'F');
 
-  // White logo symbol
+  // School Logo or Classic Academic Coat of Arms (Backup)
   if (logoImg) {
     try {
       const format = getImgFormat(data.schoolLogo);
       doc.addImage(logoImg, format, margin, 5, 18, 18);
     } catch (e) {
-      doc.setFillColor(...COLORS.white);
-      doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
-      doc.setTextColor(...COLORS.primary);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+      // Elegant academic shield fallback
+      doc.setFillColor(...COLORS.primaryLight);
+      doc.roundedRect(margin, 5, 18, 18, 2.5, 2.5, 'F');
+      doc.setDrawColor(...COLORS.white);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin + 1.5, 6.5, 15, 15, 1.5, 1.5, 'D');
+      doc.setTextColor(...COLORS.white);
+      doc.setFontSize(11);
+      doc.setFont('times', 'italic');
+      doc.text('cE', margin + 9, 16.5, { align: 'center' });
     }
   } else {
-    doc.setFillColor(...COLORS.white);
-    doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
-    doc.setTextColor(...COLORS.primary);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+    // Elegant academic shield fallback
+    doc.setFillColor(...COLORS.primaryLight);
+    doc.roundedRect(margin, 5, 18, 18, 2.5, 2.5, 'F');
+    doc.setDrawColor(...COLORS.white);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin + 1.5, 6.5, 15, 15, 1.5, 1.5, 'D');
+    doc.setTextColor(...COLORS.white);
+    doc.setFontSize(11);
+    doc.setFont('times', 'italic');
+    doc.text('cE', margin + 9, 16.5, { align: 'center' });
   }
 
-  // School / System Name
+  // School / System Name (Refined Tipography)
   doc.setTextColor(...COLORS.white);
-  doc.setFontSize(14);
+  doc.setFontSize(12.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(schoolName || 'colaboraEDU Analytics', margin + 22, 13);
+  const displayName = (schoolName || 'colaboraEDU Analytics').length > 50 
+    ? (schoolName || 'colaboraEDU Analytics').substring(0, 47) + '...' 
+    : (schoolName || 'colaboraEDU Analytics');
+  doc.text(displayName, margin + 22, 12);
 
-  // Subtitle / Filters
-  doc.setFontSize(9);
+  // Subtitle / Filters (Hierarchical color using slate-300)
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(203, 213, 225); // slate-300
   const filterText = [
     className ? `Turma: ${className}` : '',
     shift ? `Turno: ${shift}` : '',
   ].filter(Boolean).join(' | ');
-  doc.text(`Relatório: Alunos Abaixo da Média (${filterText || 'Geral'})`, margin + 22, 20);
+  doc.text(`Relatório: Alunos Abaixo da Média (${filterText || 'Geral'})`, margin + 22, 18.5);
 
-  // Generation details
-  doc.setFontSize(8);
-  doc.text(`Gerado em: ${formatDate()}`, pageWidth - margin, 13, { align: 'right' });
-  doc.text(`Ano Letivo: ${new Date().getFullYear()}`, pageWidth - margin, 19, { align: 'right' });
+  // Generation details (Hierarchical color and precise alignment)
+  doc.setFontSize(7.5);
+  doc.setTextColor(203, 213, 225); // slate-300
+  doc.text(`Gerado em: ${formatDate()}`, pageWidth - margin, 12, { align: 'right' });
+  doc.text(`Ano Letivo: ${new Date().getFullYear()}`, pageWidth - margin, 18.5, { align: 'right' });
 
-  yPos = 34;
+  // Accent transition line (1mm height)
+  doc.setFillColor(...COLORS.warning); // Elegant accent color (orange terracota)
+  doc.rect(0, 28, pageWidth, 0.8, 'F');
+
+  yPos = 35;
 
   // ===== KPI CARDS =====
   const kpis = [
-    { label: 'Notas < 15', value: data.totalLowGrades.toString() },
-    { label: 'Alunos Afetados', value: `${data.affectedStudents} (${data.affectedPercentage}%)` },
-    { label: 'Notas Zero (0)', value: data.zeroGradeCount.toString() },
+    { label: 'Notas abaixo da média (<15)', value: data.totalLowGrades.toString() },
+    { label: 'Alunos afetados na turma', value: `${data.affectedStudents} (${data.affectedPercentage}%)` },
+    { label: 'Total de notas zero (0.0)', value: data.zeroGradeCount.toString() },
   ];
 
   const boxWidth = 58;
-  const boxHeight = 14;
+  const boxHeight = 17;
+  const gap = 6;
+
   kpis.forEach((item, i) => {
-    const xPos = margin + i * (boxWidth + 4);
+    const xPos = margin + i * (boxWidth + gap);
+    
+    // Draw card background and elegant border
     doc.setFillColor(...COLORS.lightBg);
-    doc.roundedRect(xPos, yPos, boxWidth, boxHeight, 2, 2, 'F');
-    doc.setTextColor(...COLORS.dark);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(item.value, xPos + 4, yPos + 6);
+    doc.setDrawColor(...COLORS.border);
+    doc.setLineWidth(0.12);
+    doc.roundedRect(xPos, yPos, boxWidth, boxHeight, 1.5, 1.5, 'FD');
+    
+    // 1. Label on top
     doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...COLORS.muted);
-    doc.text(item.label, xPos + 4, yPos + 11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.muted); // Slate-500
+    doc.text(item.label.toUpperCase(), xPos + 5, yPos + 5.5);
+    
+    // 2. Numeric value below
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    
+    // Semantic colors for KPIs
+    let valueColor = COLORS.dark;
+    if (i === 0) valueColor = COLORS.warning; // Orange for low grades
+    if (i === 2) valueColor = COLORS.failed;  // Red for zero grades
+    
+    doc.setTextColor(...valueColor);
+    doc.text(item.value, xPos + 5, yPos + 12.5);
   });
 
-  yPos += boxHeight + 6;
+  yPos += boxHeight + 8;
 
   // ===== TABLE OF STUDENTS =====
   if (data.students && data.students.length > 0) {
@@ -985,37 +1019,37 @@ export async function generateLowGradesOnlyPDF(
       body: tableBody,
       margin: { left: margin, right: margin, bottom: margin + 4 },
       styles: {
-        fontSize: 7.5,
-        cellPadding: 2,
-        lineColor: [229, 231, 235],
+        fontSize: 7.2,
+        cellPadding: 2.2,
+        lineColor: COLORS.border,
         lineWidth: 0.1,
         font: 'helvetica',
       },
       headStyles: {
-        fillColor: COLORS.failed,
+        fillColor: COLORS.primary, // Slate-800 (Sóbrio)
         textColor: COLORS.headerText,
         fontStyle: 'bold',
-        fontSize: 8,
+        fontSize: 7.5,
         halign: 'center',
       },
       alternateRowStyles: {
-        fillColor: [255, 248, 248] as [number, number, number],
+        fillColor: COLORS.lightBg, // Slate-50 (Cinza-azulado muito claro)
       },
       columnStyles: {
         0: { cellWidth: 50 },
-        1: { halign: 'center', cellWidth: 15 },
-        2: { halign: 'center', cellWidth: 20 },
-        3: { halign: 'center', cellWidth: 20 },
+        1: { halign: 'center', cellWidth: 14 },
+        2: { halign: 'center', cellWidth: 18 },
+        3: { halign: 'center', cellWidth: 18 },
         4: { cellWidth: 'auto' },
       },
       didParseCell: (cellData) => {
         if (cellData.section === 'body') {
-          // Highlight Reprovado
+          // Highlight Reprovado with premium red carmim
           if (cellData.column.index === 2 && cellData.cell.raw === 'REPROVADO') {
             cellData.cell.styles.textColor = COLORS.failed;
             cellData.cell.styles.fontStyle = 'bold';
           }
-          // Style averages
+          // Style averages with semantic colors
           if (cellData.column.index === 1) {
             const val = parseFloat(cellData.cell.raw as string);
             if (!isNaN(val)) {
@@ -1111,8 +1145,8 @@ export async function generateLowGradesOnlyPDF(
       const yBar = endY - barHeight;
 
       if (subj.lowCount > 0) {
-        // Cor de preenchimento (Laranja #f97316)
-        doc.setFillColor(249, 115, 22);
+        // Cor de preenchimento (Azul Executivo elegante [37, 99, 235])
+        doc.setFillColor(37, 99, 235);
         
         // Desenhar a barra com cantos superiores arredondados
         const radius = Math.min(1.5, barHeight);
@@ -1132,13 +1166,13 @@ export async function generateLowGradesOnlyPDF(
         doc.text(subj.lowCount.toString(), centerX, yBar - 1.2, { align: 'center' });
       }
 
-      // Nome da disciplina no eixo X (rotacionado a 315 graus com alinhamento à esquerda, inclinando para baixo)
-      const label = subj.subject.length > 20 ? subj.subject.slice(0, 18) + '...' : subj.subject;
+      // Nome da disciplina no eixo X (Abreviado elegantemente, inclinado para baixo e para a esquerda para não sobrepor)
+      const label = subj.subject.length > 18 ? subj.subject.slice(0, 15) + '.' : subj.subject;
       
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.2);
       doc.setTextColor(75, 85, 99);
-      doc.text(label, centerX, endY + 3, { angle: 315, align: 'left' });
+      doc.text(label, centerX - 1, endY + 2, { angle: 315, align: 'right' });
     });
   }
 
