@@ -7,18 +7,19 @@ import { buildStudentWhereForUser, jsonError, requireUser } from '@/lib/api-auth
 
 // --- Color palette ---
 const COLORS = {
-  primary: [37, 99, 235] as [number, number, number],
-  primaryLight: [59, 130, 246] as [number, number, number],
-  headerBg: [7, 22, 47] as [number, number, number],
+  primary: [30, 41, 59] as [number, number, number],      // slate-800
+  primaryLight: [71, 85, 105] as [number, number, number], // slate-600
+  headerBg: [15, 23, 42] as [number, number, number],       // slate-900
   headerText: [255, 255, 255] as [number, number, number],
-  approved: [22, 163, 74] as [number, number, number],
-  failed: [220, 38, 38] as [number, number, number],
-  emc: [59, 130, 246] as [number, number, number],
-  warning: [234, 88, 12] as [number, number, number],
-  dark: [17, 24, 39] as [number, number, number],
-  muted: [107, 114, 128] as [number, number, number],
-  lightBg: [243, 244, 246] as [number, number, number],
+  approved: [21, 128, 61] as [number, number, number],     // green-700
+  failed: [185, 28, 28] as [number, number, number],       // red-700
+  emc: [37, 99, 235] as [number, number, number],          // blue-600
+  warning: [194, 65, 12] as [number, number, number],      // orange-700
+  dark: [15, 23, 42] as [number, number, number],          // slate-900
+  muted: [100, 116, 139] as [number, number, number],      // slate-500
+  lightBg: [248, 250, 252] as [number, number, number],    // slate-50
   white: [255, 255, 255] as [number, number, number],
+  border: [226, 232, 240] as [number, number, number],     // slate-200
 };
 
 function getScoreColor(score: number): [number, number, number] {
@@ -543,9 +544,9 @@ export async function POST(request: NextRequest) {
           head: [lgHeader],
           body: lgBody,
           margin: { left: margin, right: margin, bottom: margin },
-          styles: { fontSize: 6, cellPadding: 1.5, lineColor: [229, 231, 235], lineWidth: 0.2, font: 'helvetica' },
-          headStyles: { fillColor: COLORS.failed, textColor: COLORS.headerText, fontStyle: 'bold', fontSize: 6, halign: 'center' },
-          alternateRowStyles: { fillColor: [254, 242, 242] as [number, number, number] },
+          styles: { fontSize: 6, cellPadding: 1.5, lineColor: COLORS.border, lineWidth: 0.1, font: 'helvetica' },
+          headStyles: { fillColor: COLORS.primary, textColor: COLORS.headerText, fontStyle: 'bold', fontSize: 6, halign: 'center' },
+          alternateRowStyles: { fillColor: COLORS.lightBg },
           columnStyles: {
             0: { cellWidth: 45 },
             1: { halign: 'center', cellWidth: 22 },
