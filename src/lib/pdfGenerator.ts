@@ -1166,13 +1166,13 @@ export async function generateLowGradesOnlyPDF(
         doc.text(subj.lowCount.toString(), centerX, yBar - 1.2, { align: 'center' });
       }
 
-      // Nome da disciplina no eixo X (Abreviado elegantemente, inclinado para baixo e para a esquerda, centralizado no centerX)
+      // Nome da disciplina no eixo X (Abreviado elegantemente, inclinado para baixo e para a direita, iniciando no centerX)
       const label = subj.subject.length > 18 ? subj.subject.slice(0, 15) + '.' : subj.subject;
       
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(6.2);
       doc.setTextColor(75, 85, 99);
-      doc.text(label, centerX, endY + 4.5, { angle: 315, align: 'center' });
+      doc.text(label, centerX, endY + 2.2, { angle: 315, align: 'left' });
     });
   }
 
