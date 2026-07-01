@@ -168,7 +168,7 @@ export function ClassProfileView() {
         const classes: ClassOption[] = (result.classes || []).map(
           (c: { id: string; grade: string; name: string; shift: string; school?: { name: string } }) => ({
             id: c.id,
-            label: `${c.grade} ${c.name} - ${c.shift}${c.school ? ` (${c.school.name})` : ''}`,
+            label: `${c.grade} - ${c.shift}${c.school ? ` (${c.school.name})` : ''}`,
           })
         );
         setClassList(classes);
@@ -334,7 +334,7 @@ export function ClassProfileView() {
               </div>
               <div>
                 <h3 className="text-lg font-bold">
-                  {classInfo.grade} {classInfo.name} - {classInfo.shift}
+                  {classInfo.grade} - {classInfo.shift}
                 </h3>
                 <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">

@@ -14,17 +14,37 @@ export async function GET(request: NextRequest) {
     }
 
     const relativePath = pathname.slice(prefix.length);
-    const filePath = path.join(getProjectRoot(), 'uploads', relativePath);
-    
-    // Basic protection against Path Traversal
-    const resolvedPath = path.resolve(filePath);
-    const uploadsBase = path.resolve(path.join(getProjectRoot(), 'uploads'));
-    
-    if (!resolvedPath.startsWith(uploadsBase)) {
-      return new NextResponse('Access Denied', { status: 403 });
+    let filePath = path.join(getProjectRoot(), 'uploads', relativePath);
+    let resolvedPath = path.resolve(filePath);
+    let uploadsBase = path.resolve(path.join(getProjectRoot(), 'uploads'));
+    let hasAccess = resolvedPath.startsWith(uploadsBase);
+    let fileBuffer: Buffer | null = null;
+
+    if (hasAccess) {
+      try {
+        fileBuffer = await readFile(resolvedPath);
+      } catch {
+        hasAccess = false;
+      }
     }
 
-    const fileBuffer = await readFile(resolvedPath);
+    if (!hasAccess || !fileBuffer) {
+      filePath = path.join(getProjectRoot(), 'public', 'uploads', relativePath);
+      resolvedPath = path.resolve(filePath);
+      uploadsBase = path.resolve(path.join(getProjectRoot(), 'public', 'uploads'));
+      hasAccess = resolvedPath.startsWith(uploadsBase);
+      if (hasAccess) {
+        try {
+          fileBuffer = await readFile(resolvedPath);
+        } catch {
+          hasAccess = false;
+        }
+      }
+    }
+
+    if (!hasAccess || !fileBuffer) {
+      return new NextResponse('File Not Found', { status: 404 });
+    }
     const ext = path.extname(resolvedPath).toLowerCase();
     
     const mimeTypes: Record<string, string> = {
@@ -38,7 +58,7 @@ export async function GET(request: NextRequest) {
     
     const contentType = mimeTypes[ext] || 'application/octet-stream';
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(fileBuffer as any, {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=31536000, immutable',

@@ -31,7 +31,7 @@ interface StudentRecord {
 }
 
 export function StudentsView() {
-  const { selectedSchoolId, selectedClassId, selectedShift, selectedResult, searchQuery, refreshTrigger, openStudentProfile } =
+  const { selectedSchoolId, selectedClassId, selectedShift, selectedResult, selectedGrade, searchQuery, refreshTrigger, openStudentProfile } =
     useAppStore();
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +44,7 @@ export function StudentsView() {
     if (selectedClassId) params.set('classId', selectedClassId);
     if (selectedShift) params.set('shift', selectedShift);
     if (selectedResult) params.set('result', selectedResult);
+    if (selectedGrade) params.set('grade', selectedGrade);
 
     try {
       // Fetch classes matching filters
@@ -213,7 +214,7 @@ export function StudentsView() {
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">
                           {student.schoolClass
-                            ? `${student.schoolClass.grade} ${student.schoolClass.name} - ${student.schoolClass.shift}`
+                            ? `${student.schoolClass.grade} - ${student.schoolClass.shift}`
                             : '-'}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">

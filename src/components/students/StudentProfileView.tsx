@@ -230,7 +230,7 @@ function StudentProfileInner() {
             id: s.id,
             name: s.name,
             className: result.class
-              ? `${result.class.grade} ${result.class.name} - ${result.class.shift}`
+              ? `${result.class.grade} - ${result.class.shift}`
               : '',
           })
         );

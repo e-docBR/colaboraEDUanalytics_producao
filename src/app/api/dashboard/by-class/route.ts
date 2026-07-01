@@ -9,8 +9,9 @@ export async function GET(request: NextRequest) {
     const schoolId = searchParams.get('schoolId');
     const classId = searchParams.get('classId');
     const shift = searchParams.get('shift');
+    const grade = searchParams.get('grade');
 
-    const where = await buildClassWhereForUser(currentUser, { schoolId, classId });
+    const where = await buildClassWhereForUser(currentUser, { schoolId, classId, grade });
     if (shift) where.shift = shift;
 
     const classes = await db.schoolClass.findMany({

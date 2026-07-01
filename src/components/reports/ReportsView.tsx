@@ -49,7 +49,7 @@ interface ClassInfo {
   grade: string;
   name: string;
   shift: string;
-  school: { name: string } | null;
+  school: { name: string; logoUrl?: string | null } | null;
   studentCount?: number;
 }
 
@@ -74,7 +74,7 @@ interface ClassReport {
 }
 
 export function ReportsView() {
-  const { selectedSchoolId, selectedClassId, refreshTrigger } = useAppStore();
+  const { selectedSchoolId, selectedClassId, selectedGrade, refreshTrigger } = useAppStore();
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<ClassReport | null>(null);
@@ -109,7 +109,7 @@ export function ReportsView() {
           grade: data.class?.grade || '',
           name: data.class?.name || '',
           shift: data.class?.shift || '',
-          school: data.school ? { name: data.school.name } : null,
+          school: data.school ? { name: data.school.name, logoUrl: data.school.logoUrl } : null,
         },
         students: (data.students || []).map((s: Record<string, unknown>) => {
           const rawGrades = s.grades || {};
@@ -149,6 +149,7 @@ export function ReportsView() {
     if (!selectedReport) return;
     setExportingPdf(true);
     try {
+      const schoolLogo = selectedReport.classInfo.school?.logoUrl || undefined;
       const res = await fetch('/api/reports/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -159,7 +160,8 @@ export function ReportsView() {
           includeCharts: true,
           includeSubjectAnalysis: true,
           includeLowGrades: false,
-          title: `Relatório - ${selectedReport.classInfo.grade} ${selectedReport.classInfo.name}`,
+          title: `Relatório - ${selectedReport.classInfo.grade}`,
+          schoolLogo,
         }),
       });
       if (!res.ok) throw new Error('Erro ao gerar PDF');
@@ -167,7 +169,7 @@ export function ReportsView() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const safeName = `${selectedReport.classInfo.grade}_${selectedReport.classInfo.name}`.replace(/\s+/g, '_');
+      const safeName = `${selectedReport.classInfo.grade}`.replace(/\s+/g, '_');
       a.download = `relatorio_${safeName}_${new Date().getFullYear()}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
@@ -184,6 +186,7 @@ export function ReportsView() {
       const params = new URLSearchParams();
       if (selectedSchoolId) params.set('schoolId', selectedSchoolId);
       if (selectedClassId) params.set('classId', selectedClassId);
+      if (selectedGrade) params.set('grade', selectedGrade);
 
       const res = await fetch(`/api/exports/csv?${params}`);
       if (!res.ok) throw new Error('Erro ao exportar');
@@ -205,6 +208,7 @@ export function ReportsView() {
       const params = new URLSearchParams();
       if (selectedSchoolId) params.set('schoolId', selectedSchoolId);
       if (selectedClassId) params.set('classId', selectedClassId);
+      if (selectedGrade) params.set('grade', selectedGrade);
 
       const res = await fetch(`/api/exports/excel?${params}`);
       if (!res.ok) throw new Error('Erro ao exportar');
@@ -266,7 +270,7 @@ export function ReportsView() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {classes.map((cls) => (
+              {(selectedGrade ? classes.filter((c) => c.grade.startsWith(selectedGrade)) : classes).map((cls) => (
                 <button
                   key={cls.id}
                   onClick={() => loadReport(cls.id)}
@@ -275,7 +279,7 @@ export function ReportsView() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-sm">
-                        {cls.grade} {cls.name}
+                        {cls.grade}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">{cls.shift}</p>
                     </div>
@@ -299,23 +303,32 @@ export function ReportsView() {
           {/* Modal header */}
           <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
             <div className="flex items-center justify-between pr-8">
-              <div>
-                <DialogTitle className="text-lg">
-                  {selectedReport
-                    ? `${selectedReport.classInfo.grade} ${selectedReport.classInfo.name}`
-                    : 'Carregando...'}
-                </DialogTitle>
-                <DialogDescription className="mt-1">
-                  {selectedReport
-                    ? `${selectedReport.classInfo.shift} — ${selectedReport.classInfo.school?.name || ''}`
-                    : 'Buscando dados do relatório...'}
-                </DialogDescription>
+              <div className="flex items-center gap-3">
+                {selectedReport?.classInfo.school?.logoUrl && (
+                  <img
+                    src={selectedReport.classInfo.school.logoUrl}
+                    alt="Logo da escola"
+                    className="w-12 h-12 rounded-lg object-cover border border-border flex-shrink-0"
+                  />
+                )}
+                <div>
+                  <DialogTitle className="text-lg">
+                    {selectedReport
+                      ? `${selectedReport.classInfo.grade}`
+                      : 'Carregando...'}
+                  </DialogTitle>
+                  <DialogDescription className="mt-1">
+                    {selectedReport
+                      ? `${selectedReport.classInfo.shift} — ${selectedReport.classInfo.school?.name || ''}`
+                      : 'Buscando dados do relatório...'}
+                  </DialogDescription>
+                </div>
               </div>
               {selectedReport && !reportLoading && (
                 <Button
                   onClick={exportPdf}
                   disabled={exportingPdf}
-                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                  className="gap-2 bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
                 >
                   {exportingPdf ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</>
@@ -349,7 +362,7 @@ export function ReportsView() {
                     <CardHeader className="pb-1"><CardDescription className="text-xs">Turma</CardDescription></CardHeader>
                     <CardContent>
                       <p className="text-lg font-bold">
-                        {selectedReport.classInfo.grade} {selectedReport.classInfo.name}
+                        {selectedReport.classInfo.grade}
                       </p>
                       <p className="text-xs text-muted-foreground">{selectedReport.classInfo.shift}</p>
                     </CardContent>

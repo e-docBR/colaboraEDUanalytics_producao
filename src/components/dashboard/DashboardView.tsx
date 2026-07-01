@@ -122,7 +122,7 @@ function KpiCard({
 }
 
 export function DashboardView() {
-  const { selectedSchoolId, selectedClassId, selectedShift, selectedResult, refreshTrigger } =
+  const { selectedSchoolId, selectedClassId, selectedShift, selectedGrade, selectedResult, refreshTrigger } =
     useAppStore();
   const [data, setData] = useState<SummaryData | null>(null);
 
@@ -133,6 +133,7 @@ export function DashboardView() {
     if (selectedClassId) params.set('classId', selectedClassId);
     if (selectedShift) params.set('shift', selectedShift);
     if (selectedResult) params.set('result', selectedResult);
+    if (selectedGrade) params.set('grade', selectedGrade);
 
     fetch(`/api/dashboard/summary?${params}`)
       .then((r) => r.json())
@@ -194,8 +195,8 @@ export function DashboardView() {
   const classChartData = data.averageByClass
     .filter((c): c is NonNullable<typeof c> => c !== null)
     .map((c) => ({
-      name: `${c.grade} ${c.name}`,
-      fullName: `${c.grade} ${c.name} - ${c.shift}`,
+      name: `${c.grade}`,
+      fullName: `${c.grade} - ${c.shift}`,
       média: c.average,
       alunos: c.studentCount,
     }));

@@ -369,7 +369,7 @@ export function UploadView() {
                       <TableCell className="hidden md:table-cell">
                         <span className="text-sm">
                           {upload.schoolClass
-                            ? `${upload.schoolClass.grade} ${upload.schoolClass.name} - ${upload.schoolClass.shift}`
+                            ? `${upload.schoolClass.grade} - ${upload.schoolClass.shift}`
                             : '-'}
                         </span>
                       </TableCell>

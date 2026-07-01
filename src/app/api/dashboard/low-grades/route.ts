@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const schoolId = searchParams.get('schoolId');
     const classId = searchParams.get('classId');
     const shift = searchParams.get('shift');
+    const grade = searchParams.get('grade');
     const threshold = parseFloat(searchParams.get('threshold') || '15');
 
     let schoolLogo: string | null = null;
@@ -23,8 +24,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId });
-    if (shift) studentWhere.schoolClass = { shift };
+    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId, grade });
+    if (shift) {
+      studentWhere.schoolClass = {
+        ...(studentWhere.schoolClass as object),
+        shift,
+      };
+    }
 
     // Count total students matching the filter
     const totalStudentsCount = await db.student.count({
@@ -80,7 +86,7 @@ export async function GET(request: NextRequest) {
           studentId: g.studentId,
           studentName: g.student.name,
           className: g.student.schoolClass
-            ? `${g.student.schoolClass.grade} ${g.student.schoolClass.name}`
+            ? `${g.student.schoolClass.grade}`
             : '-',
           classId: g.student.schoolClass?.id || '',
           shift: g.student.schoolClass?.shift || '-',
@@ -211,7 +217,7 @@ export async function GET(request: NextRequest) {
 
     // Total students per class
     const allClasses = await db.schoolClass.findMany({
-      where: await buildClassWhereForUser(currentUser, { schoolId, classId }),
+      where: await buildClassWhereForUser(currentUser, { schoolId, classId, grade }),
       include: {
         students: { where: studentWhere, select: { id: true } },
         school: { select: { name: true } },
@@ -219,7 +225,7 @@ export async function GET(request: NextRequest) {
     });
 
     for (const cls of allClasses) {
-      const key = `${cls.grade} ${cls.name} - ${cls.shift}`;
+      const key = `${cls.grade} - ${cls.shift}`;
       if (classMap.has(key)) {
         classMap.get(key)!.totalStudents = cls.students.length;
         classMap.get(key)!.schoolName = cls.school.name;

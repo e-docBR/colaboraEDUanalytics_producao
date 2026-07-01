@@ -9,8 +9,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get('schoolId');
     const classId = searchParams.get('classId');
+    const grade = searchParams.get('grade');
 
-    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId });
+    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId, grade });
 
     const subjects = await db.subject.findMany({ orderBy: { name: 'asc' } });
 
@@ -50,8 +51,8 @@ export async function GET(request: NextRequest) {
       const q3 = sorted[Math.floor(sorted.length * 0.75)] || 0;
 
       const zeros = scores.filter((s) => s === 0).length;
-      const below10 = scores.filter((s) => s > 0 && s < 10).length;
-      const between10and20 = scores.filter((s) => s >= 10 && s < 20).length;
+      const below10 = scores.filter((s) => s > 0 && s < 15).length;
+      const between10and20 = scores.filter((s) => s >= 15 && s < 20).length;
       const above20 = scores.filter((s) => s >= 20).length;
       const passRate = scores.length > 0 ? Math.round(((scores.length - below10 - zeros) / scores.length) * 10000) / 100 : 0;
 
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
 
       const classMap = new Map<string, { className: string; scores: number[] }>();
       for (const g of subjectGrades) {
-        const className = g.student.schoolClass ? `${g.student.schoolClass.grade} ${g.student.schoolClass.name}` : 'Sem turma';
+        const className = g.student.schoolClass ? `${g.student.schoolClass.grade}` : 'Sem turma';
         if (!classMap.has(className)) classMap.set(className, { className, scores: [] });
         classMap.get(className)!.scores.push(g.score);
       }
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
 
       const studentScores = subjectGrades.map((g) => ({
         studentName: g.student.name,
-        className: g.student.schoolClass ? `${g.student.schoolClass.grade} ${g.student.schoolClass.name}` : '-',
+        className: g.student.schoolClass ? `${g.student.schoolClass.grade}` : '-',
         score: g.score,
       })).sort((a, b) => a.studentName.localeCompare(b.studentName, 'pt-BR'));
 

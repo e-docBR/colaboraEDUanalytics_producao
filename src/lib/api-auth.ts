@@ -103,7 +103,7 @@ export async function ensureClassAccess(user: CurrentUser, classId: string) {
 
 export async function buildStudentWhereForUser(
   user: CurrentUser,
-  filters: { schoolId?: string | null; classId?: string | null } = {}
+  filters: { schoolId?: string | null; classId?: string | null; grade?: string | null } = {}
 ): Promise<Prisma.StudentWhereInput> {
   const where: Prisma.StudentWhereInput = {};
 
@@ -114,6 +114,10 @@ export async function buildStudentWhereForUser(
     }
     where.classId = filters.classId;
     return where;
+  }
+
+  if (filters.grade) {
+    where.schoolClass = { grade: { startsWith: filters.grade } };
   }
 
   if (filters.schoolId) {
@@ -132,7 +136,7 @@ export async function buildStudentWhereForUser(
 
 export async function buildClassWhereForUser(
   user: CurrentUser,
-  filters: { schoolId?: string | null; classId?: string | null } = {}
+  filters: { schoolId?: string | null; classId?: string | null; grade?: string | null } = {}
 ): Promise<Prisma.SchoolClassWhereInput> {
   const where: Prisma.SchoolClassWhereInput = {};
 
@@ -143,6 +147,10 @@ export async function buildClassWhereForUser(
     }
     where.id = filters.classId;
     return where;
+  }
+
+  if (filters.grade) {
+    where.grade = { startsWith: filters.grade };
   }
 
   if (filters.schoolId) {

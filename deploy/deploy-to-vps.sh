@@ -91,6 +91,7 @@ if [ ! -f .env ]; then
 DATABASE_URL="file:${REMOTE_DIR}/db/custom.db"
 PROJECT_ROOT="${REMOTE_DIR}"
 PYTHON_BIN="/usr/bin/python3"
+PORT="3005"
 SESSION_SECRET="${SESSION_SECRET}"
 SEED_ADMIN_TOKEN="${SEED_ADMIN_TOKEN}"
 INITIAL_ADMIN_EMAIL="admin@colaboraedu.cloud"
@@ -99,9 +100,10 @@ ENVFILE
   echo "  → .env created (CHANGE the admin password!)"
 else
   echo "  → .env already exists, keeping current"
-  # Ensure DATABASE_URL and PROJECT_ROOT are correct for VPS
-  sed -i "s|^DATABASE_URL=.*|DATABASE_URL=\"file:${REMOTE_DIR}/db/custom.db\"|" .env
-  sed -i "s|^PROJECT_ROOT=.*|PROJECT_ROOT=\"${REMOTE_DIR}\"|" .env
+  # Ensure DATABASE_URL, PROJECT_ROOT and PORT are correct for VPS (upsert pattern)
+  grep -q '^DATABASE_URL=' .env && sed -i "s|^DATABASE_URL=.*|DATABASE_URL=\"file:${REMOTE_DIR}/db/custom.db\"|" .env || echo "DATABASE_URL=\"file:${REMOTE_DIR}/db/custom.db\"" >> .env
+  grep -q '^PROJECT_ROOT=' .env && sed -i "s|^PROJECT_ROOT=.*|PROJECT_ROOT=\"${REMOTE_DIR}\"|" .env || echo "PROJECT_ROOT=\"${REMOTE_DIR}\"" >> .env
+  grep -q '^PORT=' .env && sed -i "s|^PORT=.*|PORT=\"3005\"|" .env || echo 'PORT="3005"' >> .env
 fi
 
 echo ""

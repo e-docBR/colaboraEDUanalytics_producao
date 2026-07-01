@@ -244,7 +244,7 @@ function PodiumCard({
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function RankingView() {
-  const { selectedSchoolId, selectedClassId, selectedShift, refreshTrigger } =
+  const { selectedSchoolId, selectedClassId, selectedShift, selectedGrade, refreshTrigger } =
     useAppStore();
 
   const [data, setData] = useState<RankingData | null>(null);
@@ -259,6 +259,7 @@ export function RankingView() {
     if (selectedSchoolId) params.set('schoolId', selectedSchoolId);
     if (selectedClassId) params.set('classId', selectedClassId);
     if (selectedShift) params.set('shift', selectedShift);
+    if (selectedGrade) params.set('grade', selectedGrade);
 
     fetch(`/api/reports/ranking?${params}`)
       .then((res) => {

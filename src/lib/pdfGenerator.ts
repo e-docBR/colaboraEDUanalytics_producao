@@ -150,30 +150,47 @@ function formatDate(): string {
   });
 }
 
-function loadImage(url: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    
-    // Only use crossOrigin if it is a remote/external image to avoid caching/CORS issues on local files
-    const isExternal = url.startsWith('http') && !url.startsWith(window.location.origin);
-    if (isExternal) {
-      img.crossOrigin = 'anonymous';
-    }
-    
-    img.onload = () => resolve(img);
-    img.onerror = (e) => {
-      console.error('Erro ao carregar imagem para o PDF:', url, e);
-      resolve(null);
-    };
-    
-    // Add cache buster and resolve absolute path for robustness
-    const absoluteUrl = url.startsWith('/') 
-      ? window.location.origin + url 
+async function loadImageAsBase64(url: string): Promise<{ base64: string; format: string } | null> {
+  try {
+    // Resolve to absolute URL if needed
+    const absoluteUrl = url.startsWith('/')
+      ? window.location.origin + url
       : url;
-      
-    img.src = absoluteUrl + (absoluteUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
-  });
+
+    const res = await fetch(absoluteUrl, { cache: 'no-store' });
+    if (!res.ok) {
+      console.error('Erro ao buscar imagem para o PDF:', absoluteUrl, res.status);
+      return null;
+    }
+
+    const blob = await res.blob();
+    const mimeType = blob.type || 'image/jpeg';
+    const ext = url.split('.').pop()?.toLowerCase();
+    let format = 'JPEG';
+    if (ext === 'png' || mimeType.includes('png')) format = 'PNG';
+    else if (ext === 'webp' || mimeType.includes('webp')) format = 'WEBP';
+    else if (ext === 'gif' || mimeType.includes('gif')) format = 'GIF';
+
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        // result is "data:image/...;base64,XXX" — extract only base64 part
+        const base64 = result.split(',')[1];
+        resolve({ base64, format });
+      };
+      reader.onerror = () => {
+        console.error('FileReader error ao processar imagem para o PDF');
+        resolve(null);
+      };
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.error('Erro ao carregar imagem como base64:', url, e);
+    return null;
+  }
 }
+
 
 function getImgFormat(url?: string | null): string {
   if (!url) return 'JPEG';
@@ -200,9 +217,9 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
     schoolLogo,
   } = options;
 
-  let logoImg: HTMLImageElement | null = null;
+  let logoB64: { base64: string; format: string } | null = null;
   if (schoolLogo) {
-    logoImg = await loadImage(schoolLogo);
+    logoB64 = await loadImageAsBase64(schoolLogo);
   }
 
   // Build query params
@@ -307,10 +324,9 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
   doc.rect(0, 0, pageWidth, 28, 'F');
 
   // School icon area
-  if (logoImg) {
+  if (logoB64) {
     try {
-      const format = getImgFormat(schoolLogo);
-      doc.addImage(logoImg, format, margin, 5, 18, 18);
+      doc.addImage(`data:image/${logoB64.format.toLowerCase()};base64,${logoB64.base64}`, logoB64.format, margin, 5, 18, 18);
     } catch (e) {
       doc.setFillColor(...COLORS.white);
       doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
@@ -631,7 +647,7 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
 
     const subjects: SubjectPerformance[] = performanceData.subjects || [];
 
-    const sHeader = ['Disciplina', 'Alunos', 'Média', 'Mediana', 'Mín', 'Máx', 'Zeros', 'Abaixo 10', 'Taxa Aprovação'];
+    const sHeader = ['Disciplina', 'Alunos', 'Média', 'Mediana', 'Mín', 'Máx', 'Zeros', 'Abaixo 15', 'Taxa Aprovação'];
     const sBody = subjects.map((s) => [
       s.subject,
       s.count.toString(),
@@ -685,8 +701,6 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
             if (val < 50) {
               data.cell.styles.textColor = COLORS.failed;
               data.cell.styles.fontStyle = 'bold';
-            } else if (val < 70) {
-              data.cell.styles.textColor = COLORS.warning;
             } else {
               data.cell.styles.textColor = COLORS.approved;
             }
@@ -720,6 +734,66 @@ export async function generateReportPDF(options: PDFReportOptions): Promise<void
     });
 
     yPos = (doc as any).lastAutoTable.finalY + 6;
+
+    // ===== GRÁFICO MÉDIA POR DISCIPLINA =====
+    const chartSubjectsClient = subjects.filter((s) => s.count > 0);
+    if (chartSubjectsClient.length > 0) {
+      if (yPos > pageHeight - 50) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.dark);
+      doc.text('Média por Disciplina', margin, yPos);
+      yPos += 2;
+
+      const chartWidth = pageWidth - margin * 2;
+      const barH = 6;
+      const barGap = 2;
+      const labelWidth = 55;
+      const maxScore = 40;
+
+      chartSubjectsClient.forEach((sa) => {
+        if (yPos > pageHeight - 12) {
+          doc.addPage();
+          yPos = margin + 8;
+        }
+
+        const subjectLabel = sa.subject.length > 24 ? sa.subject.substring(0, 22) + '...' : sa.subject;
+
+        // Label
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.muted);
+        doc.text(subjectLabel, margin, yPos + 4);
+
+        // Background bar
+        const barAreaWidth = chartWidth - labelWidth - 28;
+        doc.setFillColor(...COLORS.lightBg);
+        doc.roundedRect(margin + labelWidth, yPos, barAreaWidth, barH, 1, 1, 'F');
+
+        // Value bar
+        const barPct = Math.min(sa.average / maxScore, 1);
+        const barLen = barAreaWidth * barPct;
+        const scoreColor = getScoreColor(sa.average);
+        doc.setFillColor(...scoreColor);
+        if (barLen > 1) {
+          doc.roundedRect(margin + labelWidth, yPos, barLen, barH, 1, 1, 'F');
+        }
+
+        // Percentage label
+        const pct = Math.round((sa.average / maxScore) * 100);
+        doc.setFontSize(6);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...scoreColor);
+        doc.text(`${sa.average.toFixed(1)} (${pct}%)`, margin + labelWidth + barLen + 3, yPos + 4);
+
+        yPos += barH + barGap;
+      });
+      yPos += 4;
+    }
   }
 
   // ===== LOW GRADES SECTION =====
@@ -860,6 +934,7 @@ export async function generateLowGradesOnlyPDF(
     zeroGradeCount: number;
     affectedStudents: number;
     affectedPercentage: number;
+    totalStudentsCount: number;
     students: Array<{
       studentName: string;
       className: string;
@@ -891,9 +966,9 @@ export async function generateLowGradesOnlyPDF(
   const margin = 12;
   let yPos = margin;
 
-  let logoImg: HTMLImageElement | null = null;
+  let logoB64Second: { base64: string; format: string } | null = null;
   if (data.schoolLogo) {
-    logoImg = await loadImage(data.schoolLogo);
+    logoB64Second = await loadImageAsBase64(data.schoolLogo);
   }
 
   // ===== HEADER =====
@@ -901,10 +976,9 @@ export async function generateLowGradesOnlyPDF(
   doc.rect(0, 0, pageWidth, 28, 'F');
 
   // School Logo or Classic Academic Coat of Arms (Backup)
-  if (logoImg) {
+  if (logoB64Second) {
     try {
-      const format = getImgFormat(data.schoolLogo);
-      doc.addImage(logoImg, format, margin, 5, 18, 18);
+      doc.addImage(`data:image/${logoB64Second.format.toLowerCase()};base64,${logoB64Second.base64}`, logoB64Second.format, margin, 5, 18, 18);
     } catch (e) {
       // Elegant academic shield fallback
       doc.setFillColor(...COLORS.primaryLight);
@@ -1085,30 +1159,33 @@ export async function generateLowGradesOnlyPDF(
       currentY = margin + 6; // Começa no topo da nova página
     }
 
-    // 1. Título e subtítulo do gráfico
+    // 1. Título e metadados do gráfico
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(...COLORS.dark);
-    doc.text('Notas Abaixo da Média por Disciplina', margin, currentY);
+    doc.text('Alunos Abaixo da Média por Disciplina', margin, currentY);
 
+    // Linha destacada: Turma e Total de Alunos
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(70, 80, 95); // Slate intermediário
+    doc.text(`Turma: ${className} | Total de Alunos: ${data.totalStudentsCount}`, margin, currentY + 4.5);
+
+    // Subtítulo
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(...COLORS.muted);
-    doc.text(`Quantidade de alunos com notas < ${data.threshold} em cada disciplina`, margin, currentY + 4);
+    doc.text(`Porcentagem de alunos com notas < ${data.threshold} em cada disciplina`, margin, currentY + 8.5);
 
     // 2. Parâmetros de desenho do gráfico
     const startX = margin + 12;
-    const startY = currentY + 12;
+    const startY = currentY + 17;
     const chartWidth = pageWidth - margin * 2 - 16;
     const chartHeight = 35; // Altura da área de plotagem das barras
     const endY = startY + chartHeight;
 
-    // Calcular escala máxima do eixo Y
-    const maxLowCount = subjects.reduce((max, s) => Math.max(max, s.lowCount), 0);
-    let yMax = 4;
-    if (maxLowCount > 0) {
-      yMax = Math.ceil(maxLowCount / 4) * 4;
-    }
+    // Calcular escala máxima do eixo Y fixada em 100%
+    const yMax = 100;
 
     // 3. Desenhar Eixo Y, rótulos e linhas de grade (grid)
     const yTicks = 4;
@@ -1126,7 +1203,7 @@ export async function generateLowGradesOnlyPDF(
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       doc.setTextColor(...COLORS.muted);
-      doc.text(val.toString(), startX - 3, yVal + 1, { align: 'right' });
+      doc.text(`${val}%`, startX - 3, yVal + 1, { align: 'right' });
     }
 
     // 4. Desenhar Eixo X (linha base)
@@ -1140,7 +1217,7 @@ export async function generateLowGradesOnlyPDF(
 
     subjects.forEach((subj, idx) => {
       const centerX = startX + (idx * barSpacing) + (barSpacing / 2);
-      const barHeight = (subj.lowCount / yMax) * chartHeight;
+      const barHeight = (subj.percentage / yMax) * chartHeight;
       const xBar = centerX - (barWidth / 2);
       const yBar = endY - barHeight;
 
@@ -1159,11 +1236,17 @@ export async function generateLowGradesOnlyPDF(
           doc.rect(xBar, yBar, barWidth, barHeight, 'F');
         }
 
-        // Rótulo de dados (Data Label) acima da barra
+        // Rótulo de dados superior (Quantidade de alunos)
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(17, 24, 39);
-        doc.text(subj.lowCount.toString(), centerX, yBar - 1.2, { align: 'center' });
+        doc.setFontSize(6.8);
+        doc.setTextColor(75, 85, 99); // Cor cinza escura
+        doc.text(`${subj.lowCount} ${subj.lowCount === 1 ? 'aluno' : 'alunos'}`, centerX, yBar - 4.2, { align: 'center' });
+
+        // Rótulo de dados inferior (Porcentagem)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.2);
+        doc.setTextColor(17, 24, 39); // Preto Slate
+        doc.text(`${subj.percentage.toFixed(1)}%`, centerX, yBar - 1.2, { align: 'center' });
       }
 
       // Nome da disciplina no eixo X (Abreviado elegantemente, inclinado para baixo e para a direita, iniciando no centerX)

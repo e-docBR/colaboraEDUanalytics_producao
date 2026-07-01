@@ -150,6 +150,7 @@ export async function GET(
         name: schoolClass.school.name,
         city: schoolClass.school.city,
         state: schoolClass.school.state,
+        logoUrl: schoolClass.school.logoUrl || null,
       },
       statistics: {
         totalStudents,

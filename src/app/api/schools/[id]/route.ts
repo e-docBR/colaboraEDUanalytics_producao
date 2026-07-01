@@ -156,7 +156,7 @@ export async function GET(
       .map((s) => ({
         id: s.id,
         name: s.name,
-        className: s.schoolClass ? `${s.schoolClass.grade} ${s.schoolClass.name} - ${s.schoolClass.shift}` : '',
+        className: s.schoolClass ? `${s.schoolClass.grade} - ${s.schoolClass.shift}` : '',
         average: s.grades.length > 0 ? s.grades.reduce((sum, g) => sum + g.score, 0) / s.grades.length : 0,
         finalResult: s.finalResult,
       }))

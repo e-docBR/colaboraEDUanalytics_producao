@@ -202,7 +202,7 @@ export function PdfConfigDialog() {
                     <SelectItem value="__all__">Todas as turmas</SelectItem>
                     {classes.map((cls) => (
                       <SelectItem key={cls.id} value={cls.id}>
-                        {cls.grade} {cls.name} — {cls.shift} ({cls._count.students} alunos)
+                        {cls.grade} — {cls.shift} ({cls._count.students} alunos)
                       </SelectItem>
                     ))}
                   </SelectContent>

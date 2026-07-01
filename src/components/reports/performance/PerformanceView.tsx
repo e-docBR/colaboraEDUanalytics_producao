@@ -258,7 +258,7 @@ function LoadingSkeleton() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PerformanceView() {
-  const { selectedSchoolId, selectedClassId, selectedShift, refreshTrigger } =
+  const { selectedSchoolId, selectedClassId, selectedShift, selectedGrade, refreshTrigger } =
     useAppStore();
   const [data, setData] = useState<PerformanceData | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -275,6 +275,7 @@ export function PerformanceView() {
     if (selectedSchoolId) params.set('schoolId', selectedSchoolId);
     if (selectedClassId) params.set('classId', selectedClassId);
     if (selectedShift) params.set('shift', selectedShift);
+    if (selectedGrade) params.set('grade', selectedGrade);
 
     fetch(`/api/reports/performance?${params}`)
       .then((r) => {

@@ -308,7 +308,7 @@ function CustomRadarTooltip({
 // ──────────────────────────────────────────────
 
 export function ComparisonView() {
-  const { selectedSchoolId, selectedClassId, selectedShift, refreshTrigger } =
+  const { selectedSchoolId, selectedClassId, selectedShift, selectedGrade, refreshTrigger } =
     useAppStore();
 
   const [data, setData] = useState<ComparisonData | null>(null);
@@ -331,6 +331,7 @@ export function ComparisonView() {
     if (selectedSchoolId) params.set('schoolId', selectedSchoolId);
     if (selectedClassId) params.set('classId', selectedClassId);
     if (selectedShift) params.set('shift', selectedShift);
+    if (selectedGrade) params.set('grade', selectedGrade);
 
     try {
       const [comparisonRes, byClassRes] = await Promise.all([

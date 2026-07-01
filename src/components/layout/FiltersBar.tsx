@@ -33,6 +33,8 @@ export function FiltersBar() {
     setSelectedClassId,
     selectedShift,
     setSelectedShift,
+    selectedGrade,
+    setSelectedGrade,
     selectedResult,
     setSelectedResult,
     searchQuery,
@@ -43,6 +45,15 @@ export function FiltersBar() {
 
   const [schools, setSchools] = useState<School[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+
+  // Extrair séries únicas das turmas carregadas (removendo letras das turmas, ex: "6º ANO A" -> "6º ANO")
+  const uniqueGrades = [...new Set(classes.map((c) => c.grade.replace(/\s+[A-Z]$/i, '').trim()))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  // Filtrar turmas pela série selecionada
+  const filteredClasses = selectedGrade
+    ? classes.filter((c) => c.grade.startsWith(selectedGrade))
+    : classes;
 
   useEffect(() => {
     fetch('/api/schools')
@@ -104,8 +115,31 @@ export function FiltersBar() {
         </Select>
       )}
 
+      {/* Grade filter */}
+      {classes.length > 0 && uniqueGrades.length > 0 && (
+        <Select
+          value={selectedGrade || 'all'}
+          onValueChange={(val) => {
+            setSelectedGrade(val === 'all' ? null : val);
+            setSelectedClassId(null);
+          }}
+        >
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectValue placeholder="Todas as Séries" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as Séries</SelectItem>
+            {uniqueGrades.map((g) => (
+              <SelectItem key={g} value={g}>
+                {g}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
       {/* Class filter */}
-      {classes.length > 0 && (
+      {filteredClasses.length > 0 && (
         <Select
           value={selectedClassId || 'all'}
           onValueChange={(val) => setSelectedClassId(val === 'all' ? null : val)}
@@ -115,9 +149,9 @@ export function FiltersBar() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas as Turmas</SelectItem>
-            {classes.map((c) => (
+            {filteredClasses.map((c) => (
               <SelectItem key={c.id} value={c.id}>
-                {c.grade} {c.name} - {c.shift}
+                {c.grade} - {c.shift}
               </SelectItem>
             ))}
           </SelectContent>

@@ -26,10 +26,12 @@ export async function GET(request: NextRequest) {
     const schoolId = searchParams.get('schoolId');
     const classId = searchParams.get('classId');
     const shift = searchParams.get('shift');
+    const grade = searchParams.get('grade');
 
-    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId });
+    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId, grade });
     if (shift) {
       studentWhere.schoolClass = {
+        ...(studentWhere.schoolClass as object),
         shift,
       };
     }

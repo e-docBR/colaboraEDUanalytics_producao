@@ -127,7 +127,7 @@ function KpiCard({
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export function HeatmapView() {
-  const { selectedSchoolId, selectedClassId, selectedShift, refreshTrigger } =
+  const { selectedSchoolId, selectedClassId, selectedShift, selectedGrade, refreshTrigger } =
     useAppStore();
 
   const [data, setData] = useState<HeatmapData | null>(null);
@@ -148,6 +148,7 @@ export function HeatmapView() {
     if (selectedSchoolId) params.set('schoolId', selectedSchoolId);
     if (selectedClassId) params.set('classId', selectedClassId);
     if (selectedShift) params.set('shift', selectedShift);
+    if (selectedGrade) params.set('grade', selectedGrade);
 
     fetch(`/api/reports/heatmap?${params}`)
       .then((res) => {

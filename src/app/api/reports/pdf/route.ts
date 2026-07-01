@@ -4,6 +4,9 @@ import autoTable from 'jspdf-autotable';
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { buildStudentWhereForUser, jsonError, requireUser } from '@/lib/api-auth';
+import fs from 'fs';
+import path from 'path';
+import { getProjectRoot } from '@/lib/paths';
 
 // --- Color palette ---
 const COLORS = {
@@ -46,6 +49,7 @@ export async function POST(request: NextRequest) {
       schoolId,
       classId,
       shift,
+      grade,
       result,
       title,
       includeKPIs,
@@ -53,12 +57,18 @@ export async function POST(request: NextRequest) {
       includeCharts,
       includeSubjectAnalysis,
       includeLowGrades,
+      schoolLogo,
     } = body;
 
     // Build student where clause
-    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId });
+    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId, grade });
     if (result) studentWhere.finalResult = result;
-    if (shift) studentWhere.schoolClass = { shift };
+    if (shift) {
+      studentWhere.schoolClass = {
+        ...(studentWhere.schoolClass as object),
+        shift,
+      };
+    }
 
     // Fetch KPI data
     let kpiData: {
@@ -125,7 +135,7 @@ export async function POST(request: NextRequest) {
 
       if (classInfo) {
         schoolName = classInfo.school.name;
-        className = `${classInfo.grade} ${classInfo.name}`;
+        className = `${classInfo.grade}`;
       }
 
       const dbStudents = await db.student.findMany({
@@ -151,7 +161,7 @@ export async function POST(request: NextRequest) {
         grades.forEach((g) => { gradesMap[g.subject.name] = g.score; });
         return {
           name: s.name,
-          className: s.schoolClass ? `${s.schoolClass.grade} ${s.schoolClass.name}` : '-',
+          className: s.schoolClass ? `${s.schoolClass.grade}` : '-',
           shift: s.schoolClass?.shift || '-',
           finalResult: s.finalResult,
           average: avg,
@@ -171,7 +181,7 @@ export async function POST(request: NextRequest) {
       min: number;
       max: number;
       zeros: number;
-      below10: number;
+      below15: number;
       passRate: number;
     }
 
@@ -186,7 +196,7 @@ export async function POST(request: NextRequest) {
         const subjectGrades = grades.filter((g) => g.subjectId === subject.id);
         const scores = subjectGrades.map((g) => g.score);
         if (scores.length === 0) {
-          return { subject: subject.name, count: 0, average: 0, median: 0, min: 0, max: 0, zeros: 0, below10: 0, passRate: 0 };
+          return { subject: subject.name, count: 0, average: 0, median: 0, min: 0, max: 0, zeros: 0, below15: 0, passRate: 0 };
         }
         const sorted = [...scores].sort((a, b) => a - b);
         const avg = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100;
@@ -194,9 +204,9 @@ export async function POST(request: NextRequest) {
           ? Math.round(((sorted[scores.length / 2 - 1] + sorted[scores.length / 2]) / 2) * 10) / 10
           : sorted[Math.floor(scores.length / 2)];
         const zeros = scores.filter((s) => s === 0).length;
-        const below10 = scores.filter((s) => s > 0 && s < 10).length;
-        const passRate = scores.length > 0 ? Math.round(((scores.length - below10 - zeros) / scores.length) * 10000) / 100 : 0;
-        return { subject: subject.name, count: scores.length, average: avg, median, min: sorted[0], max: sorted[sorted.length - 1], zeros, below10, passRate };
+        const below15 = scores.filter((s) => s > 0 && s < 15).length;
+        const passRate = scores.length > 0 ? Math.round(((scores.length - below15 - zeros) / scores.length) * 10000) / 100 : 0;
+        return { subject: subject.name, count: scores.length, average: avg, median, min: sorted[0], max: sorted[sorted.length - 1], zeros, below15, passRate };
       });
     }
 
@@ -232,7 +242,7 @@ export async function POST(request: NextRequest) {
         if (!studentMap.has(g.studentId)) {
           studentMap.set(g.studentId, {
             name: g.student.name,
-            className: g.student.schoolClass ? `${g.student.schoolClass.grade} ${g.student.schoolClass.name}` : '-',
+            className: g.student.schoolClass ? `${g.student.schoolClass.grade}` : '-',
             shift: g.student.schoolClass?.shift || '-',
             result: g.student.finalResult,
             lowCount: 0,
@@ -274,12 +284,59 @@ export async function POST(request: NextRequest) {
     doc.setFillColor(...COLORS.primary);
     doc.rect(0, 0, pageWidth, 28, 'F');
 
-    doc.setFillColor(...COLORS.white);
-    doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
-    doc.setTextColor(...COLORS.primary);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+    // Logo or EDU placeholder
+    if (schoolLogo) {
+      try {
+        const ext = schoolLogo.split('.').pop()?.toLowerCase();
+        const fmt = ext === 'png' ? 'PNG' : ext === 'webp' ? 'WEBP' : 'JPEG';
+        let logoBase64 = '';
+
+        if (!schoolLogo.startsWith('http')) {
+          // Local path, try reading directly from filesystem
+          let localPath = path.join(getProjectRoot(), schoolLogo);
+          if (!fs.existsSync(localPath)) {
+            localPath = path.join(getProjectRoot(), 'public', schoolLogo);
+          }
+          if (fs.existsSync(localPath)) {
+            const logoBuffer = fs.readFileSync(localPath);
+            logoBase64 = logoBuffer.toString('base64');
+          }
+        }
+
+        // Fallback or if it's an external url
+        if (!logoBase64) {
+          const logoUrlStr = schoolLogo.startsWith('http')
+            ? schoolLogo
+            : `http://localhost:${process.env.PORT || 3000}${schoolLogo}`;
+          const logoRes = await fetch(logoUrlStr);
+          if (logoRes.ok) {
+            const logoBuffer = await logoRes.arrayBuffer();
+            logoBase64 = Buffer.from(logoBuffer).toString('base64');
+          }
+        }
+
+        if (logoBase64) {
+          doc.addImage(`data:image/${fmt.toLowerCase()};base64,${logoBase64}`, fmt, margin, 5, 18, 18);
+        } else {
+          throw new Error('Could not load logo');
+        }
+      } catch (err) {
+        console.error('Error loading school logo in PDF:', err);
+        doc.setFillColor(...COLORS.white);
+        doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
+        doc.setTextColor(...COLORS.primary);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+      }
+    } else {
+      doc.setFillColor(...COLORS.white);
+      doc.roundedRect(margin, 5, 18, 18, 3, 3, 'F');
+      doc.setTextColor(...COLORS.primary);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('EDU', margin + 9, 17.5, { align: 'center' });
+    }
 
     doc.setTextColor(...COLORS.white);
     doc.setFontSize(16);
@@ -471,10 +528,10 @@ export async function POST(request: NextRequest) {
       doc.text('Análise por Disciplina', margin, yPos);
       yPos += 2;
 
-      const sHeader = ['Disciplina', 'Alunos', 'Média', 'Mediana', 'Mín', 'Máx', 'Zeros', 'Abaixo 10', 'Taxa Aprovação'];
+      const sHeader = ['Disciplina', 'Alunos', 'Média', 'Mediana', 'Mín', 'Máx', 'Zeros', 'Abaixo 15', 'Taxa Aprovação'];
       const sBody = subjectAnalysis.map((s) => [
         s.subject, s.count.toString(), s.average.toFixed(1), s.median.toFixed(1),
-        s.min.toFixed(1), s.max.toFixed(1), s.zeros.toString(), s.below10.toString(), `${s.passRate.toFixed(1)}%`,
+        s.min.toFixed(1), s.max.toFixed(1), s.zeros.toString(), s.below15.toString(), `${s.passRate.toFixed(1)}%`,
       ]);
 
       autoTable(doc, {
@@ -501,8 +558,7 @@ export async function POST(request: NextRequest) {
             const val = parseFloat((data.cell.raw as string).replace('%', ''));
             if (!isNaN(val)) {
               if (val < 50) { data.cell.styles.textColor = COLORS.failed; data.cell.styles.fontStyle = 'bold'; }
-              else if (val < 70) data.cell.styles.textColor = COLORS.warning;
-              else data.cell.styles.textColor = COLORS.approved;
+              else { data.cell.styles.textColor = COLORS.approved; }
             }
           }
           if (data.section === 'body' && data.column.index === 2) {
@@ -519,6 +575,87 @@ export async function POST(request: NextRequest) {
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 6;
+
+      // ===== GRAFICO MEDIA POR DISCIPLINA =====
+      const chartSubjects = subjectAnalysis.filter((s) => s.count > 0);
+      if (chartSubjects.length > 0) {
+        if (yPos > pageHeight - 50) { doc.addPage(); yPos = margin; }
+
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...COLORS.dark);
+        doc.text('Média por Disciplina', margin, yPos);
+        yPos += 2;
+
+        const chartWidth = pageWidth - margin * 2;
+        const chartHeight = 50; // Total height for the bars in mm
+        const maxScore = 40;
+
+        if (yPos + chartHeight + 20 > pageHeight) { 
+          doc.addPage(); 
+          yPos = margin + 8; 
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...COLORS.dark);
+          doc.text('Média por Disciplina', margin, yPos);
+        }
+
+        yPos += 12; // Top margin for labels
+
+        const numBars = chartSubjects.length;
+        const barSlotWidth = chartWidth / numBars;
+        const barW = Math.min(14, barSlotWidth * 0.7); // Dynamic bar width, max 14mm
+        const chartBaseY = yPos + chartHeight;
+
+        chartSubjects.forEach((sa, i) => {
+          const centerX = margin + (i * barSlotWidth) + (barSlotWidth / 2);
+          const barX = centerX - (barW / 2);
+
+          // Background bar (vertical)
+          doc.setFillColor(...COLORS.lightBg);
+          doc.roundedRect(barX, yPos, barW, chartHeight, 1, 1, 'F');
+
+          // Value bar (vertical)
+          const barPct = Math.min(sa.average / maxScore, 1);
+          const barH = chartHeight * barPct;
+          const barY = chartBaseY - barH;
+
+          const scoreColor: [number, number, number] =
+            sa.average < 10 ? COLORS.failed : sa.average < 15 ? COLORS.warning : COLORS.approved;
+
+          doc.setFillColor(...scoreColor);
+          if (barH > 1) {
+            doc.roundedRect(barX, barY, barW, barH, 1, 1, 'F');
+          }
+
+          // Value and percentage label (centered above the bar)
+          const pct = Math.round((sa.average / maxScore) * 100);
+          doc.setFontSize(6);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...scoreColor);
+          doc.text(`${sa.average.toFixed(1)}`, centerX, barY - 4, { align: 'center' });
+          doc.setFontSize(5);
+          doc.text(`(${pct}%)`, centerX, barY - 1, { align: 'center' });
+
+          // Subject Label (centered below the bar)
+          doc.setFontSize(6);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...COLORS.muted);
+
+          let label = sa.subject;
+          if (label.length > 12) {
+            const words = label.split(' ').filter(w => w.length > 2);
+            if (words.length > 1) {
+              label = words.map(w => w.substring(0, 4)).join('.');
+            } else {
+              label = label.substring(0, 10) + '.';
+            }
+          }
+          doc.text(label, centerX, chartBaseY + 4, { align: 'center' });
+        });
+
+        yPos = chartBaseY + 10;
+      }
     }
 
     // ===== LOW GRADES =====

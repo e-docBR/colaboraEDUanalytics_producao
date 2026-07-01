@@ -122,7 +122,7 @@ export async function GET(
         gender: student.gender,
         finalResult: student.finalResult,
         className: student.schoolClass
-          ? `${student.schoolClass.grade} ${student.schoolClass.name} - ${student.schoolClass.shift}`
+          ? `${student.schoolClass.grade} - ${student.schoolClass.shift}`
           : '-',
         schoolName: student.school?.name || student.schoolClass?.school?.name || '-',
       },

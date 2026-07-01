@@ -100,12 +100,16 @@ export async function GET(request: NextRequest) {
     const schoolId = searchParams.get('schoolId');
     const classId = searchParams.get('classId');
     const shift = searchParams.get('shift');
+    const grade = searchParams.get('grade');
     const result = searchParams.get('result');
 
-    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId });
+    const studentWhere: Prisma.StudentWhereInput = await buildStudentWhereForUser(currentUser, { schoolId, classId, grade });
     if (result) studentWhere.finalResult = result;
     if (shift) {
-      studentWhere.schoolClass = { shift };
+      studentWhere.schoolClass = {
+        ...(studentWhere.schoolClass as object),
+        shift,
+      };
     }
 
     const students = await db.student.findMany({
@@ -162,7 +166,7 @@ export async function GET(request: NextRequest) {
         student.birthDate || '',
         student.gender || '',
         escapeSpreadsheetCell(student.school?.name || ''),
-        escapeSpreadsheetCell(student.schoolClass ? `${student.schoolClass.grade} ${student.schoolClass.name}` : ''),
+        escapeSpreadsheetCell(student.schoolClass ? `${student.schoolClass.grade}` : ''),
         student.schoolClass?.shift || '',
         student.finalResult,
         Math.round(avg * 100) / 100,

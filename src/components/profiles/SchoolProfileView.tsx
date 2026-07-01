@@ -597,7 +597,7 @@ export function SchoolProfileView() {
             <ResponsiveContainer width="100%" height={Math.max(200, classStats.length * 40 + 40)}>
               <BarChart
                 data={classStats.map((c) => ({
-                  name: `${c.grade} ${c.name} - ${c.shift}`,
+                  name: `${c.grade} - ${c.shift}`,
                   média: c.average,
                   aprovação: c.approvalRate,
                 }))}
@@ -657,7 +657,7 @@ export function SchoolProfileView() {
                 <tbody>
                   {classStats.map((c) => (
                     <tr key={c.id} className="border-b hover:bg-muted/30 transition-colors">
-                      <td className="py-2 px-3 font-medium">{c.grade} {c.name}</td>
+                      <td className="py-2 px-3 font-medium">{c.grade}</td>
                       <td className="py-2 px-3 text-muted-foreground">{c.shift}</td>
                       <td className="py-2 px-3 text-center">{c.totalStudents}</td>
                       <td className="py-2 px-3 text-center">

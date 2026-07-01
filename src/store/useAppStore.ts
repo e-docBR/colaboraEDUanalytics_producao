@@ -27,6 +27,8 @@ interface AppState {
   setSelectedClassId: (id: string | null) => void;
   selectedShift: string | null;
   setSelectedShift: (shift: string | null) => void;
+  selectedGrade: string | null;
+  setSelectedGrade: (grade: string | null) => void;
   selectedResult: string | null;
   setSelectedResult: (result: string | null) => void;
   searchQuery: string;
@@ -58,11 +60,13 @@ export const useAppStore = create<AppState>((set) => ({
   activeView: 'dashboard',
   setActiveView: (view) => set({ activeView: view }),
   selectedSchoolId: null,
-  setSelectedSchoolId: (id) => set({ selectedSchoolId: id }),
+  setSelectedSchoolId: (id) => set({ selectedSchoolId: id, selectedGrade: null, selectedClassId: null }),
   selectedClassId: null,
   setSelectedClassId: (id) => set({ selectedClassId: id }),
   selectedShift: null,
-  setSelectedShift: (shift) => set({ selectedShift: shift }),
+  setSelectedShift: (shift) => set({ selectedShift: shift, selectedGrade: null, selectedClassId: null }),
+  selectedGrade: null,
+  setSelectedGrade: (grade) => set({ selectedGrade: grade }),
   selectedResult: null,
   setSelectedResult: (result) => set({ selectedResult: result }),
   searchQuery: '',

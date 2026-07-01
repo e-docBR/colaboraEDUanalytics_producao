@@ -10,8 +10,9 @@ export async function GET(request: NextRequest) {
     const schoolId = searchParams.get('schoolId');
     const classId = searchParams.get('classId');
     const shift = searchParams.get('shift');
+    const grade = searchParams.get('grade');
 
-    const classWhere: Prisma.SchoolClassWhereInput = await buildClassWhereForUser(currentUser, { schoolId, classId });
+    const classWhere: Prisma.SchoolClassWhereInput = await buildClassWhereForUser(currentUser, { schoolId, classId, grade });
     if (shift) classWhere.shift = shift;
 
     const classes = await db.schoolClass.findMany({
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
       return {
         classId: cls.id,
-        className: `${cls.grade} ${cls.name} - ${cls.shift}`,
+        className: `${cls.grade} - ${cls.shift}`,
         students,
       };
     });

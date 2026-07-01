@@ -44,6 +44,7 @@ import {
   Cell,
   Legend,
   ReferenceLine,
+  LabelList,
 } from 'recharts';
 import { toast } from 'sonner';
 import { generateLowGradesOnlyPDF } from '@/lib/pdfGenerator';
@@ -102,7 +103,7 @@ interface LowGradesData {
 const PIE_COLORS = ['#ef4444', '#f97316', '#eab308', '#06b6d4', '#8b5cf6', '#ec4899'];
 
 export function LowGradesView() {
-  const { selectedSchoolId, selectedClassId, selectedShift, refreshTrigger } = useAppStore();
+  const { selectedSchoolId, selectedClassId, selectedShift, selectedGrade, refreshTrigger } = useAppStore();
   const [data, setData] = useState<LowGradesData | null>(null);
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
 
@@ -112,6 +113,7 @@ export function LowGradesView() {
     if (selectedSchoolId) params.set('schoolId', selectedSchoolId);
     if (selectedClassId) params.set('classId', selectedClassId);
     if (selectedShift) params.set('shift', selectedShift);
+    if (selectedGrade) params.set('grade', selectedGrade);
 
     fetch(`/api/dashboard/low-grades?${params}`)
       .then((res) => res.json())
@@ -473,14 +475,24 @@ export function LowGradesView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Subject analysis bar chart */}
         <Card className="lg:col-span-2 gap-0">
-          <CardHeader>
-            <CardTitle className="text-base">Notas Abaixo da M&eacute;dia por Disciplina</CardTitle>
-            <CardDescription>Quantidade de alunos com notas &lt; {data.threshold} em cada disciplina</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-bold">Alunos Abaixo da M&eacute;dia por Disciplina</CardTitle>
+            <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1">
+              Turma: {(() => {
+                if (selectedClassId && data.students.length > 0) {
+                  return data.students[0].className;
+                }
+                return data.classAnalysis.map(c => c.className).join(', ') || 'Geral';
+              })()} | Total de Alunos: {data.totalStudentsCount}
+            </div>
+            <CardDescription className="mt-1">
+              Porcentagem de alunos com notas &lt; {data.threshold} em cada disciplina
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {subjectChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={subjectChartData} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
+                <BarChart data={subjectChartData} margin={{ top: 28, right: 20, left: 10, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis
                     dataKey="name"
@@ -490,20 +502,62 @@ export function LowGradesView() {
                     height={80}
                     tick={{ fill: 'hsl(var(--muted-foreground))' }}
                   />
-                  <YAxis fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis
+                    fontSize={11}
+                    tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    domain={[0, 100]}
+                    tickFormatter={(value) => `${value}%`}
+                  />
                   <Tooltip
                     contentStyle={{
                       borderRadius: '8px',
                       border: '1px solid hsl(var(--border))',
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                     }}
-                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName || ''}
-                    formatter={(value: number, name: string) => {
-                      if (name === '% abaixo') return [`${value}%`, '% Notas Baixas'];
-                      return [value, name];
+                    labelFormatter={(label: any, payload: any[]) => payload?.[0]?.payload?.fullName || ''}
+                    formatter={(value: any, name: any, props: any) => {
+                      const count = props?.payload?.['Alunos abaixo'] || 0;
+                      return [`${Number(value).toFixed(1)}% (${count} de ${data.totalStudentsCount} alunos)`, 'Alunos Abaixo'];
                     }}
                   />
-                  <Bar dataKey="Alunos abaixo" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="% abaixo" fill="#f97316" radius={[4, 4, 0, 0]}>
+                    <LabelList
+                      dataKey="% abaixo"
+                      content={(props: any) => {
+                        const { x, y, width, value, index } = props;
+                        if (value === undefined || value === 0) return null;
+                        const rawData = subjectChartData[index];
+                        const count = rawData ? rawData['Alunos abaixo'] : 0;
+                        const cx = x + width / 2;
+                        return (
+                          <g>
+                            {/* Linha superior: Qtd de alunos */}
+                            <text
+                              x={cx}
+                              y={y - 14}
+                              fill="hsl(var(--foreground))"
+                              textAnchor="middle"
+                              fontSize={9.5}
+                              fontWeight="bold"
+                            >
+                              {count} {count === 1 ? 'aluno' : 'alunos'}
+                            </text>
+                            {/* Linha inferior: Porcentagem */}
+                            <text
+                              x={cx}
+                              y={y - 3}
+                              fill="hsl(var(--muted-foreground))"
+                              textAnchor="middle"
+                              fontSize={8.5}
+                              fontWeight="medium"
+                            >
+                              {Number(value).toFixed(1)}%
+                            </text>
+                          </g>
+                        );
+                      }}
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
